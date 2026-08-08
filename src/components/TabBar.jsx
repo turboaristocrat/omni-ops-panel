@@ -5,8 +5,8 @@ import { usePanel } from '../context/PanelContext';
  * TabBar
  * Renders space tabs. In edit mode: double-click to rename, × to delete, + to add.
  */
-const TabBar = () => {
-    const { config, activeSpaceId, setActiveSpaceId, isEditing, updateConfig, showModal } = usePanel();
+const TabBar = ({ onDeleteSelected, isMini }) => {
+    const { config, activeSpaceId, setActiveSpaceId, isEditing, setIsEditing, selectedItemId, updateConfig, showModal } = usePanel();
     const spaces = config.panels[0].spaces;
 
     const handleAddSpace = () => {
@@ -51,30 +51,50 @@ const TabBar = () => {
 
     return (
         <div className="omni-tabbar">
-            {spaces.map(space => (
-                <div
-                    key={space.id}
-                    className={`omni-tab ${activeSpaceId === space.id ? 'active' : ''}`}
-                    onClick={() => setActiveSpaceId(space.id)}
-                    onDoubleClick={(e) => isEditing && handleRenameSpace(e, space.id, space.name)}
-                    title={isEditing ? 'Double-click to rename' : space.name}
-                    style={{ paddingRight: isEditing ? 24 : undefined }}
+            <div className="omni-tabs-scroll">
+                {spaces.map(space => (
+                    <div
+                        key={space.id}
+                        className={`omni-tab ${activeSpaceId === space.id ? 'active' : ''}`}
+                        onClick={() => setActiveSpaceId(space.id)}
+                        onDoubleClick={(e) => isEditing && handleRenameSpace(e, space.id, space.name)}
+                        title={isEditing ? 'Double-click to rename' : space.name}
+                    >
+                        <span className="omni-tab-label">{space.name}</span>
+                        {isEditing && spaces.length > 1 && activeSpaceId === space.id && (
+                            <button
+                                className="omni-tab-delete"
+                                onClick={(e) => handleDeleteSpace(e, space.id)}
+                                title="Delete Tab"
+                            >✕</button>
+                        )}
+                    </div>
+                ))}
+                {isEditing && (
+                    <div className="omni-tab omni-tab-add" onClick={handleAddSpace} title="Add Tab">
+                        +
+                    </div>
+                )}
+            </div>
+            
+            <div className="omni-header-actions">
+                {isEditing && selectedItemId && (
+                    <button
+                        className="omni-header-btn omni-header-btn--danger"
+                        onClick={onDeleteSelected}
+                        title="Delete Selected Button"
+                    >
+                        🗑
+                    </button>
+                )}
+                <button
+                    className={`omni-header-btn ${isEditing ? 'active edit-pencil' : ''}`}
+                    onClick={() => setIsEditing(!isEditing)}
+                    title={isEditing ? 'Exit Edit Mode' : 'Enter Edit Mode'}
                 >
-                    <span className="omni-tab-label">{space.name}</span>
-                    {isEditing && spaces.length > 1 && (
-                        <button
-                            className="omni-tab-delete"
-                            onClick={(e) => handleDeleteSpace(e, space.id)}
-                            title="Delete Tab"
-                        >×</button>
-                    )}
-                </div>
-            ))}
-            {isEditing && (
-                <div className="omni-tab omni-tab-add" onClick={handleAddSpace} title="Add Tab">
-                    +
-                </div>
-            )}
+                    {isEditing ? '✏' : '✏'}
+                </button>
+            </div>
         </div>
     );
 };
