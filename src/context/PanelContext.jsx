@@ -7,27 +7,94 @@ export const usePanel = () => useContext(PanelContext);
 // ─── Default Config ──────────────────────────────────────────────────────────
 
 const DEFAULT_CONFIG = {
-    panels: [{
-        id: 'main_panel',
-        activeSpaceId: 'main_space',
-        spaces: [{
-            id: 'main_space',
-            name: 'My Tools',
-            layout: {
-                type: 'grid',
-                columns: 6,
-                items: [
-                    { id: 'lbl_welcome', x: 0, y: 0, w: 6, h: 1, type: 'label', text: '   OMNI OPS   ', style: 'header' },
-                    { id: 'btn_cc_match', x: 0, y: 1, w: 6, h: 1, type: 'button', label: 'CC Match Layers', actionType: 'customFunc', actionValue: 'ccMatchLayers' },
-                    { id: 'lbl_grade', x: 0, y: 2, w: 6, h: 1, type: 'label', text: '   COLOR GRADE   ', style: 'header' },
-                    { id: 'btn_levels', x: 0, y: 3, w: 3, h: 1, type: 'button', label: 'Levels Lum', actionType: 'customFunc', actionValue: 'createLevelsLum' },
-                    { id: 'btn_huesat', x: 3, y: 3, w: 3, h: 1, type: 'button', label: 'HueSat Color', actionType: 'customFunc', actionValue: 'createHueSatColor' },
-                    { id: 'btn_curves', x: 0, y: 4, w: 3, h: 1, type: 'button', label: 'Curves Color', actionType: 'customFunc', actionValue: 'createCurvesColor' },
-                    { id: 'btn_all', x: 3, y: 4, w: 3, h: 1, type: 'button', label: 'Create All 3', actionType: 'customFunc', actionValue: 'createColorGradeStack' },
-                ]
-            }
-        }]
-    }]
+  "panels": [
+    {
+      "id": "main_panel",
+      "activeSpaceId": "main_space",
+      "spaces": [
+        {
+          "id": "main_space",
+          "name": "My Tools",
+          "layout": {
+            "type": "grid",
+            "columns": 6,
+            "items": [
+              {
+                "id": "lbl_grade",
+                "x": 0,
+                "y": 0,
+                "w": 6,
+                "h": 1,
+                "type": "label",
+                "text": "COLOR GRADE",
+                "style": "header",
+                "label": "COLOR GRADE",
+                "textAlign": "center",
+                "fontSize": "12px",
+                "textColor": "#FFFFFF",
+                "backgroundColor": "#1A1A1A"
+              },
+              {
+                "id": "btn_cc_match",
+                "x": 0,
+                "y": 1,
+                "w": 6,
+                "h": 1,
+                "type": "button",
+                "label": "CC Match Layers",
+                "actionType": "customFunc",
+                "actionValue": "ccMatchLayers"
+              },
+              {
+                "id": "btn_levels",
+                "x": 0,
+                "y": 2,
+                "w": 3,
+                "h": 1,
+                "type": "button",
+                "label": "Levels Lum",
+                "actionType": "customFunc",
+                "actionValue": "createLevelsLum"
+              },
+              {
+                "id": "btn_huesat",
+                "x": 3,
+                "y": 2,
+                "w": 3,
+                "h": 1,
+                "type": "button",
+                "label": "HueSat Color",
+                "actionType": "customFunc",
+                "actionValue": "createHueSatColor"
+              },
+              {
+                "id": "btn_curves",
+                "x": 0,
+                "y": 3,
+                "w": 3,
+                "h": 1,
+                "type": "button",
+                "label": "Curves Color",
+                "actionType": "customFunc",
+                "actionValue": "createCurvesColor"
+              },
+              {
+                "id": "btn_all",
+                "x": 3,
+                "y": 3,
+                "w": 3,
+                "h": 1,
+                "type": "button",
+                "label": "Create All 3",
+                "actionType": "customFunc",
+                "actionValue": "createColorGradeStack"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
 };
 
 // ─── Provider ────────────────────────────────────────────────────────────────

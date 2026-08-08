@@ -23,13 +23,15 @@ import * as LayerService from './LayerService';
 // ─── Menu Command Fallback Map ───────────────────────────────────────────────
 // Maps legacy numeric IDs to their modern string equivalents
 const LEGACY_ID_MAP = {
-    '1211': 'levels', '1010': 'curves', '1009': 'levels',
+    '1211': 'levels', '1010': 'curves',
     '1178': 'matchColor', '1177': 'hdrToning', '1179': 'replaceColor',
     '1180': 'equalize', '1021': 'colorRange', '1275': 'selectAndMask',
     '1191': 'applyImage', '1192': 'calculations', '1031': 'trim',
     '1121': 'batch', '1122': 'imageProcessor', '1114': 'quickMask',
     '1000': 'new', '1001': 'open', '1082': 'save', '1083': 'saveAS',
-    '1046': 'flattenImage'
+    '1046': 'flattenImage',
+    '1042': 'freetransform',
+    '1040': 'fill'
 };
 
 // ─── String → Internal Enum Map for known menu commands ─────────────────────
@@ -173,8 +175,12 @@ async function _executeMenuCommand(targetValue) {
         'new': 1000,
         'curves': 1010,
         'curves...': 1010,
-        'levels': 1009,
-        'levels...': 1009,
+        'levels': 1051,
+        'levels...': 1051,
+        'freetransform': 2207,
+        'free transform': 2207,
+        'fill': 1042,
+        'fill...': 1042,
         'invert': 1013,
         'colorrange': 1021,
         'color range...': 1021,
@@ -214,37 +220,90 @@ async function _executeMenuCommand(targetValue) {
     const resolvedNumeric = MENU_TO_NUMERIC[cleanValue] || Number(targetValue);
     const isNumeric = !isNaN(resolvedNumeric) && String(resolvedNumeric).length > 0;
 
+    // Look up the actual menu item display name from our tools database for robust name-based fallbacks
+    const { commonCommands } = require('../data/toolsData');
+    const foundCmd = commonCommands.find(c => String(c.value) === String(targetValue));
+    let resolvedName = targetValue;
+    if (foundCmd) {
+        const segments = foundCmd.label.split('>');
+        resolvedName = segments[segments.length - 1].trim();
+    }
+
+    // Intercept standard adjustments and execute via direct descriptor to guarantee dialog box display
+    const mappedEnum = KNOWN_MENU_COMMANDS[cleanValue];
+    if (mappedEnum) {
+        try {
+            await core.executeAsModal(async () => {
+                await batchPlay([{
+                    _obj: mappedEnum,
+                    _options: { dialogOptions: 'display' }
+                }], { 
+                    modalBehavior: 'execute',
+                    dialogOptions: 'display'
+                });
+            }, { commandName: `Adjustment: ${mappedEnum}` });
+            return;
+        } catch (e) {
+            if (e.message && e.message.includes('Time out')) return; // Dialog is open = success
+            console.warn(`[ActionService] Descriptor-based batchPlay failed for '${mappedEnum}', falling through:`, e.message);
+        }
+    }
+
     if (isNumeric) {
+        // Intercept Camera Raw Filter (1061) and execute via standard batchPlay descriptor
+        if (resolvedNumeric === 1061) {
+            try {
+                await core.executeAsModal(async () => {
+                    const bpRes = await batchPlay([{
+                        _obj: 'Adobe Camera Raw Filter',
+                        _options: { dialogOptions: 'display' }
+                    }], { 
+                        modalBehavior: 'execute',
+                        dialogOptions: 'display'
+                    });
+                    console.log(`[ActionService] Camera Raw Filter batchPlay result:`, bpRes);
+                }, { commandName: "Camera Raw Filter" });
+                return;
+            } catch (e) {
+                if (e.message && e.message.includes('Time out')) return; // Dialog is open = success
+                console.warn(`[ActionService] Camera Raw Filter batchPlay failed:`, e.message);
+            }
+        }
+
         // Numeric ID path - must use the object wrapper in this UXP version
         try {
             const res = await core.performMenuCommand({
-                commandID: resolvedNumeric,
-                commandId: resolvedNumeric
+                commandId: resolvedNumeric,
+                kcanDispatchWhileModal: true,
+                _isCommand: false
             });
             console.log(`[ActionService] performMenuCommand result for ${resolvedNumeric}:`, res);
             // Only exit if the command was actually executed and available
             if (res && res.available !== false && res !== false) {
                 return;
             }
-            console.log(`[ActionService] Command ${resolvedNumeric} not available via performMenuCommand, trying batchPlay...`);
+            console.log(`[ActionService] Command ${resolvedNumeric} not available via performMenuCommand, trying batchPlay name fallback...`);
         } catch (e) {
             console.warn(`[ActionService] Numeric performMenuCommand failed for ${resolvedNumeric}:`, e.message);
         }
     }
 
     // String / enum path with multi-strategy fallback
-    const mappedEnum = KNOWN_MENU_COMMANDS[cleanValue];
     const forceEnum = !!mappedEnum;
-    const originalValue = forceEnum ? mappedEnum : targetValue;
+    const originalValue = forceEnum ? mappedEnum : resolvedName;
 
     // Fallbacks using batchPlay (which still requires executeAsModal)
     const runSelectByRef = async (refType, refValue) => {
         const descriptor = {
             _obj: 'select',
-            _target: [{ _ref: 'menuItem', [refType]: refValue }]
+            _target: [{ _ref: 'menuItemClass', [refType]: refValue }],
+            _options: { dialogOptions: 'display' }
         };
         if (refType === '_value') descriptor._target[0]._enum = 'menuItemType';
-        return await batchPlay([descriptor], { modalBehavior: 'execute' });
+        return await batchPlay([descriptor], { 
+            modalBehavior: 'execute',
+            dialogOptions: 'display'
+        });
     };
 
     try {
