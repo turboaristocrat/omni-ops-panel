@@ -516,7 +516,7 @@ body {
 .omni-modal-body {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: 260px;
+    max-height: 450px;
     overflow-y: auto;
     padding: 14px;
 }
@@ -570,8 +570,8 @@ body {
 
 /* ── Category Grid ────────────────────────────────────────────── */
 .omni-category-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     gap: 5px;
 }
 .omni-category-btn {
@@ -587,6 +587,8 @@ body {
     text-align: center;
     transition: all var(--transition-fast);
     line-height: 1.3;
+    flex: 1 1 calc(33.33% - 5px);
+    box-sizing: border-box;
 }
 .omni-category-btn:hover { background: var(--bg-button-hover); color: var(--color-text); border-color: var(--color-border-hi); }
 .omni-category-btn.active { background: var(--bg-button-active); color: var(--color-accent); border-color: var(--color-accent); font-weight: 600; }
