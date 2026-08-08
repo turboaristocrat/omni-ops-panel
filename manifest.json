@@ -1,0 +1,87 @@
+{
+    "id": "com.omniops.panel",
+    "name": "Omni Ops",
+    "version": "0.1.0",
+    "main": "dist/index.js",
+    "host": {
+        "app": "PS",
+        "minVersion": "25.2.0",
+        "data": {
+            "apiVersion": 2
+        }
+    },
+    "manifestVersion": 5,
+    "requiredPermissions": {
+        "clipboard": "readAndWrite",
+        "localFileSystem": "fullAccess"
+    },
+    "icons": [
+        {
+            "width": 48,
+            "height": 48,
+            "path": "icons/dark-plugin.png",
+            "scale": [1, 2],
+            "theme": ["dark", "darkest", "medium"],
+            "species": ["pluginList"]
+        },
+        {
+            "width": 48,
+            "height": 48,
+            "path": "icons/light-plugin.png",
+            "scale": [1, 2],
+            "theme": ["lightest", "light"],
+            "species": ["pluginList"]
+        }
+    ],
+    "entrypoints": [
+        {
+            "type": "panel",
+            "id": "omni-ops-main",
+            "label": {
+                "default": "Omni Ops"
+            },
+            "minimumSize": { "width": 58, "height": 58 },
+            "maximumSize": { "width": 9999, "height": 9999 },
+            "preferredDockedSize": { "width": 280, "height": 500 },
+            "preferredFloatingSize": { "width": 320, "height": 550 },
+            "icons": [
+                {
+                    "width": 23,
+                    "height": 23,
+                    "path": "icons/dark-panel.png",
+                    "scale": [1, 2],
+                    "theme": ["dark", "darkest", "medium"],
+                    "species": ["chrome"]
+                },
+                {
+                    "width": 23,
+                    "height": 23,
+                    "path": "icons/light-panel.png",
+                    "scale": [1, 2],
+                    "theme": ["lightest", "light"],
+                    "species": ["chrome"]
+                }
+            ]
+        },
+        {
+            "type": "command",
+            "id": "exportConfig",
+            "label": { "default": "Export Layout Config..." }
+        },
+        {
+            "type": "command",
+            "id": "importConfig",
+            "label": { "default": "Import Layout Config..." }
+        },
+        {
+            "type": "command",
+            "id": "resetConfig",
+            "label": { "default": "Reset to Defaults" }
+        },
+        {
+            "type": "command",
+            "id": "showAbout",
+            "label": { "default": "About Omni Ops" }
+        }
+    ]
+}
