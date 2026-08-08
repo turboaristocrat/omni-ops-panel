@@ -143,24 +143,18 @@ async function _selectTool(toolId) {
         toolId = 'objectSelectionTool';
     }
     try {
-        const { app } = require('photoshop');
-        // Try direct DOM selection first
-        app.currentTool = toolId;
-    } catch (domError) {
-        console.warn(`[ActionService] DOM tool selection failed for "${toolId}", trying batchPlay:`, domError);
-        try {
-            await core.executeAsModal(async () => {
-                const { action } = require('photoshop');
-                const { batchPlay } = action;
-                await batchPlay([{
-                    _obj: 'select',
-                    _target: [{ _ref: 'tool', _enum: 'tool', _value: toolId }]
-                }], { modalBehavior: 'execute' });
-            }, { commandName: `Select Tool: ${toolId}` });
-        } catch (bpError) {
-            console.error(`[ActionService] Tool selection failed for "${toolId}":`, bpError);
-            await core.showAlert(`Could not select tool: ${toolId}`);
-        }
+        const { action } = require('photoshop');
+        const { batchPlay } = action;
+        // Use batchPlay with direct reference for reliable tool selection in UXP
+        await core.executeAsModal(async () => {
+            await batchPlay([{
+                _obj: 'select',
+                _target: [{ _ref: toolId }]
+            }], { modalBehavior: 'execute' });
+        }, { commandName: `Select Tool: ${toolId}` });
+    } catch (bpError) {
+        console.error(`[ActionService] Tool selection failed for "${toolId}":`, bpError);
+        await core.showAlert(`Tool selection failed: "${toolId}"\nError: ${bpError.message}`);
     }
 }
 
@@ -173,45 +167,75 @@ async function _executeMenuCommand(targetValue) {
         targetValue = LEGACY_ID_MAP[targetValue];
     }
 
-    const commandID = Number(targetValue);
-    const isNumeric = !isNaN(commandID) && targetValue.length > 0 && !/[a-zA-Z]/.test(targetValue);
+    // Map common string commands to numeric IDs for modal-safe performMenuCommand execution
+    const MENU_TO_NUMERIC = {
+        'selectall': 1017,
+        'new': 1000,
+        'curves': 1010,
+        'curves...': 1010,
+        'levels': 1009,
+        'levels...': 1009,
+        'invert': 1013,
+        'colorrange': 1021,
+        'color range...': 1021,
+        'flattenimage': 1046,
+        'desaturate': 1016,
+        'brightnesscontrast': 1211,
+        'brightness/contrast...': 1211,
+        'huesaturation': 1017,
+        'hue/saturation...': 1017,
+        'colorbalance': 1018,
+        'color balance...': 1018,
+        'blackandwhite': 1019,
+        'black & white...': 1019,
+        'photofilter': 1020,
+        'photo filter...': 1020,
+        'channelmixer': 1022,
+        'channel mixer...': 1022,
+        'colorlookup': 1023,
+        'color lookup...': 1023,
+        'posterize': 1024,
+        'posterize...': 1024,
+        'threshold': 1025,
+        'threshold...': 1025,
+        'gradientmap': 1026,
+        'gradient map...': 1026,
+        'selectivelcolor': 1027,
+        'selective color...': 1027,
+        'matchcolor': 1178,
+        'match color...': 1178,
+        'replacecolor': 1179,
+        'replace color...': 1179,
+        'shadows/highlights': 1180,
+        'shadows/highlights...': 1180
+    };
+
+    const cleanValue = targetValue.toLowerCase().replace(/\./g, '').replace(/…/g, '').trim();
+    const resolvedNumeric = MENU_TO_NUMERIC[cleanValue] || Number(targetValue);
+    const isNumeric = !isNaN(resolvedNumeric) && String(resolvedNumeric).length > 0;
 
     if (isNumeric) {
-        // Numeric ID path - run directly with kcanDispatchWhileModal
+        // Numeric ID path - must use the object wrapper in this UXP version
         try {
-            await core.performMenuCommand({
-                commandId: commandID,
-                kcanDispatchWhileModal: true,
-                _isCommand: false
+            const res = await core.performMenuCommand({
+                commandID: resolvedNumeric,
+                commandId: resolvedNumeric
             });
+            console.log(`[ActionService] performMenuCommand result for ${resolvedNumeric}:`, res);
+            // Only exit if the command was actually executed and available
+            if (res && res.available !== false && res !== false) {
+                return;
+            }
+            console.log(`[ActionService] Command ${resolvedNumeric} not available via performMenuCommand, trying batchPlay...`);
         } catch (e) {
-            console.error(`[ActionService] Menu command ${commandID} failed:`, e);
-            await core.showAlert(`Failed to execute menu command ${commandID}.\nError: ${e.message}`);
+            console.warn(`[ActionService] Numeric performMenuCommand failed for ${resolvedNumeric}:`, e.message);
         }
-        return;
     }
 
     // String / enum path with multi-strategy fallback
-    const cleanValue = targetValue.toLowerCase().replace(/\./g, '').replace(/…/g, '').trim();
     const mappedEnum = KNOWN_MENU_COMMANDS[cleanValue];
     const forceEnum = !!mappedEnum;
-    if (mappedEnum) targetValue = mappedEnum;
-
-    const originalValue = forceEnum ? targetValue : targetValue;
-
-    // Strategy 1: performMenuCommand with enum directly with kcanDispatchWhileModal
-    if (forceEnum || /^[a-z][a-zA-Z0-9]*$/.test(targetValue)) {
-        try {
-            await core.performMenuCommand({
-                commandId: targetValue,
-                kcanDispatchWhileModal: true,
-                _isCommand: false
-            });
-            return;
-        } catch (e) {
-            console.warn(`[ActionService] performMenuCommand('${targetValue}') failed:`, e.message);
-        }
-    }
+    const originalValue = forceEnum ? mappedEnum : targetValue;
 
     // Fallbacks using batchPlay (which still requires executeAsModal)
     const runSelectByRef = async (refType, refValue) => {
@@ -225,11 +249,11 @@ async function _executeMenuCommand(targetValue) {
 
     try {
         await core.executeAsModal(async () => {
-            // Strategy 2: batchPlay enum
-            if (forceEnum || /^[a-z][a-zA-Z0-9]*$/.test(targetValue)) {
-                try { await runSelectByRef('_value', targetValue); return; } catch (e) { /* continue */ }
+            // Strategy 1: batchPlay enum
+            if (forceEnum || /^[a-z][a-zA-Z0-9]*$/.test(originalValue)) {
+                try { await runSelectByRef('_value', originalValue); return; } catch (e) { /* continue */ }
             }
-            // Strategy 3: batchPlay by exact name
+            // Strategy 2: batchPlay by exact name
             try { await runSelectByRef('_name', originalValue); return; } catch (e) { /* continue */ }
             // Strategy 4: Name variations (strip/add ellipsis)
             const base = originalValue.replace(/\.|…/g, '');

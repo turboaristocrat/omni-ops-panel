@@ -87,7 +87,6 @@ export const PanelProvider = ({ children }) => {
             setActiveSpaceId(config.panels[0].spaces[0].id);
         }
     }, [config, activeSpaceId]);
-
     const value = {
         config,
         activeSpace,
