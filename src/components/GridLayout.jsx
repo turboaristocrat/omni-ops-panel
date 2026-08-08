@@ -4,7 +4,7 @@ import { usePanel } from '../context/PanelContext';
 
 const MIN_W = 1;
 const MIN_H = 1;
-const FIXED_ROW_HEIGHT = 30;
+// We now calculate row height dynamically based on width to ensure square buttons
 
 /**
  * GridLayout
@@ -41,8 +41,9 @@ const GridLayout = ({ layout, spacePath }) => {
     }, []);
 
     const colCount = layout.columns || 8;
+    const rowHeight = Math.max(20, Math.floor(containerWidth / colCount));
     const maxRow = Math.max(...localItems.map(i => (i.y || 0) + (i.h || 1)), 0);
-    const contentHeight = maxRow * FIXED_ROW_HEIGHT;
+    const contentHeight = maxRow * rowHeight;
 
     // ── Save layout to config ─────────────────────────────────────────────
     const saveLayout = useCallback((items) => {
@@ -75,7 +76,7 @@ const GridLayout = ({ layout, spacePath }) => {
         const rect = container.getBoundingClientRect();
         const cellWidth = rect.width / colCount;
         const deltaGridX = Math.round((e.clientX - startX) / cellWidth);
-        const deltaGridY = Math.round((e.clientY - startY) / FIXED_ROW_HEIGHT);
+        const deltaGridY = Math.round((e.clientY - startY) / rowHeight);
 
         const newItems = localItems.map(it => {
             if (it.id !== itemId) return it;
@@ -177,9 +178,9 @@ const GridLayout = ({ layout, spacePath }) => {
                         style={{
                             position: 'absolute',
                             left: `${(item.x || 0) * colWidthPct}%`,
-                            top: `${(item.y || 0) * FIXED_ROW_HEIGHT}px`,
+                            top: `${(item.y || 0) * rowHeight}px`,
                             width: `${(item.w || 1) * colWidthPct}%`,
-                            height: `${(item.h || 1) * FIXED_ROW_HEIGHT}px`,
+                            height: `${(item.h || 1) * rowHeight}px`,
                             zIndex: isInteracting ? 100 : isSelected ? 50 : 1,
                             cursor: isEditing ? 'move' : 'default',
                             touchAction: 'none',
