@@ -177,13 +177,14 @@ async function _executeMenuCommand(targetValue) {
     const isNumeric = !isNaN(commandID) && targetValue.length > 0 && !/[a-zA-Z]/.test(targetValue);
 
     if (isNumeric) {
-        // Numeric ID path
+        // Numeric ID path - run directly with kcanDispatchWhileModal
         try {
-            await core.executeAsModal(async () => {
-                await core.performMenuCommand(commandID);
-            }, { commandName: `Menu: ${commandID}` });
+            await core.performMenuCommand({
+                commandId: commandID,
+                kcanDispatchWhileModal: true,
+                _isCommand: false
+            });
         } catch (e) {
-            if (e.message && e.message.toLowerCase().includes('timeout')) return; // Dialog is open = success
             console.error(`[ActionService] Menu command ${commandID} failed:`, e);
             await core.showAlert(`Failed to execute menu command ${commandID}.\nError: ${e.message}`);
         }
@@ -198,6 +199,21 @@ async function _executeMenuCommand(targetValue) {
 
     const originalValue = forceEnum ? targetValue : targetValue;
 
+    // Strategy 1: performMenuCommand with enum directly with kcanDispatchWhileModal
+    if (forceEnum || /^[a-z][a-zA-Z0-9]*$/.test(targetValue)) {
+        try {
+            await core.performMenuCommand({
+                commandId: targetValue,
+                kcanDispatchWhileModal: true,
+                _isCommand: false
+            });
+            return;
+        } catch (e) {
+            console.warn(`[ActionService] performMenuCommand('${targetValue}') failed:`, e.message);
+        }
+    }
+
+    // Fallbacks using batchPlay (which still requires executeAsModal)
     const runSelectByRef = async (refType, refValue) => {
         const descriptor = {
             _obj: 'select',
@@ -207,33 +223,25 @@ async function _executeMenuCommand(targetValue) {
         return await batchPlay([descriptor], { modalBehavior: 'execute' });
     };
 
-    await core.executeAsModal(async () => {
-        // Strategy 1: performMenuCommand with enum
-        if (forceEnum) {
-            try {
-                const success = await core.performMenuCommand(targetValue);
-                if (success) return;
-            } catch (e) {
-                if (e.message && e.message.includes('Time out')) return; // Interactive dialog open = success
-                console.warn(`[ActionService] performMenuCommand('${targetValue}') failed:`, e.message);
+    try {
+        await core.executeAsModal(async () => {
+            // Strategy 2: batchPlay enum
+            if (forceEnum || /^[a-z][a-zA-Z0-9]*$/.test(targetValue)) {
+                try { await runSelectByRef('_value', targetValue); return; } catch (e) { /* continue */ }
             }
-        }
-        // Strategy 2: batchPlay enum
-        if (forceEnum || /^[a-z][a-zA-Z0-9]*$/.test(targetValue)) {
-            try { await runSelectByRef('_value', targetValue); return; } catch (e) { /* continue */ }
-        }
-        // Strategy 3: batchPlay by exact name
-        try { await runSelectByRef('_name', originalValue); return; } catch (e) { /* continue */ }
-        // Strategy 4: Name variations (strip/add ellipsis)
-        const base = originalValue.replace(/\.|…/g, '');
-        for (const v of [base + '...', base + '…', base].filter(v => v !== originalValue)) {
-            try { await runSelectByRef('_name', v); return; } catch (e) { /* continue */ }
-        }
-        throw new Error(`Menu item '${originalValue}' could not be executed.`);
-    }, { commandName: `Menu: ${originalValue}` }).catch(async e => {
+            // Strategy 3: batchPlay by exact name
+            try { await runSelectByRef('_name', originalValue); return; } catch (e) { /* continue */ }
+            // Strategy 4: Name variations (strip/add ellipsis)
+            const base = originalValue.replace(/\.|…/g, '');
+            for (const v of [base + '...', base + '…', base].filter(v => v !== originalValue)) {
+                try { await runSelectByRef('_name', v); return; } catch (e) { /* continue */ }
+            }
+            throw new Error(`Menu item '${originalValue}' could not be executed.`);
+        }, { commandName: `Menu: ${originalValue}` });
+    } catch (e) {
         if (e.message && e.message.includes('Time out')) return;
         await core.showAlert(`Could not execute menu item: "${originalValue}".\nError: ${e.message}`);
-    });
+    }
 }
 
 // ─── Play Photoshop Action ───────────────────────────────────────────────────
