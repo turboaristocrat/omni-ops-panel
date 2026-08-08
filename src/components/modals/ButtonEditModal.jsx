@@ -7,6 +7,123 @@ import { layerActions } from '../../data/layerActionsData';
 import { getActionSets } from '../../services/ActionSetService';
 
 /**
+ * Open Photoshop Native Adobe Color Picker with robust RGB & Hex parsing
+ */
+async function openAdobeColorPicker(initialColor = null) {
+    try {
+        const { app, core, action } = require('photoshop');
+        const { batchPlay } = action;
+        let pickedHex = null;
+
+        await core.executeAsModal(async () => {
+            // Set the foreground color first if an initial color is provided
+            if (initialColor && /^#[0-9A-F]{6}$/i.test(initialColor)) {
+                try {
+                    const r = parseInt(initialColor.slice(1, 3), 16);
+                    const g = parseInt(initialColor.slice(3, 5), 16);
+                    const b = parseInt(initialColor.slice(5, 7), 16);
+                    const solidColor = new app.SolidColor();
+                    solidColor.rgb.red = r;
+                    solidColor.rgb.green = g;
+                    solidColor.rgb.blue = b;
+                    app.foregroundColor = solidColor;
+                } catch (e) {
+                    console.log('Could not set initial color', e);
+                }
+            }
+
+            const initialHex = app.foregroundColor.rgb.hexValue;
+            const res = await batchPlay([{ _obj: 'showColorPicker', _isCommand: true }], {});
+            
+            const newHex = app.foregroundColor.rgb.hexValue;
+            if (initialHex !== newHex) {
+                pickedHex = `#${newHex}`;
+            } else if (res && res[0]) {
+                const c = res[0].RGBColor || res[0].color || res[0];
+                let r = c.red ?? c._value ?? c.r ?? null;
+                let g = c.green ?? c.g ?? null;
+                let b = c.blue ?? c.b ?? null;
+                if (r == null && c.rgb) {
+                    r = c.rgb.red ?? c.rgb.r;
+                    g = c.rgb.green ?? c.rgb.g;
+                    b = c.rgb.blue ?? c.rgb.b;
+                }
+                if (r != null && g != null && b != null) {
+                    const hexR = Math.round(r).toString(16).padStart(2, '0');
+                    const hexG = Math.round(g).toString(16).padStart(2, '0');
+                    const hexB = Math.round(b).toString(16).padStart(2, '0');
+                    pickedHex = `#${hexR}${hexG}${hexB}`;
+                }
+            }
+        }, { commandName: "Pick Color" });
+
+        return pickedHex ? pickedHex.toUpperCase() : null;
+    } catch (e) {
+        console.error('[Adobe Color Picker Error]', e);
+    }
+    return null;
+}
+
+/**
+ * ColorPickerRow for ButtonEditModal
+ */
+const ColorPickerRow = ({ label, color, onChange }) => {
+    const PALETTE = [
+        '#FFFFFF', '#AAAAAA', '#555555', '#2C2C2C', '#000000',
+        '#0265DC', '#00A0E9', '#00C853', '#FFD600', '#FF9100', '#FF3D00', '#D32F2F', '#E91E63', '#9C27B0'
+    ];
+
+    const handlePickAdobeColor = async () => {
+        const hex = await openAdobeColorPicker(color);
+        if (hex && /^#[0-9A-F]{6}$/i.test(hex)) {
+            onChange(hex);
+        }
+    };
+
+    const safeColor = (typeof color === 'string' && color !== 'transparent' && !color.includes('NaN')) ? color : '#FFFFFF';
+
+    return (
+        <div className="omni-form-group">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label className="omni-label">{label}</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div
+                        role="button"
+                        onClick={handlePickAdobeColor}
+                        style={{
+                            width: 22, height: 22, borderRadius: 4,
+                            backgroundColor: safeColor,
+                            border: '2px solid #0265DC',
+                            cursor: 'pointer',
+                        }}
+                        title="Click to open Adobe Photoshop Color Picker"
+                    />
+                    <input
+                        className="omni-input"
+                        type="text"
+                        value={color || ''}
+                        onChange={(e) => onChange(e.target.value.toUpperCase())}
+                        style={{ width: '70px', padding: '0 4px', fontSize: '10px' }}
+                        placeholder="#HEX"
+                    />
+                </div>
+            </div>
+            <div className="omni-swatches" style={{ marginTop: 6 }}>
+                {PALETTE.map(c => (
+                    <div
+                        key={c}
+                        className={`omni-swatch ${color === c ? 'selected' : ''}`}
+                        style={{ background: c }}
+                        onClick={() => onChange(c)}
+                        title={c}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+/**
  * ButtonEditModal
  * Tabbed form for adding/editing action buttons.
  * Tabs: Action | Appearance
@@ -33,6 +150,7 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
     const [textColor, setTextColor] = useState('');
     const [icon, setIcon] = useState('');
     const [buttonSize, setButtonSize] = useState('standard');
+    const [fontSize, setFontSize] = useState('11px');
     const [shortcut, setShortcut] = useState('');
 
     const [activeTab, setActiveTab] = useState('action');
@@ -47,6 +165,7 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
             setTextColor(initialData.textColor || '');
             setIcon(initialData.icon || '');
             setButtonSize(initialData.buttonSize || 'standard');
+            setFontSize(initialData.fontSize || '');
             setShortcut(initialData.shortcut || '');
 
             const initType = initialData.actionType || 'tool';
@@ -149,6 +268,7 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
             textColor,
             icon,
             buttonSize,
+            fontSize,
             shortcut,
         });
     };
@@ -274,28 +394,28 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
                                 {errors.label && <span className="omni-error">{errors.label}</span>}
                             </div>
 
-                            {/* Button Color */}
+                            {/* Color Pickers */}
+                            <ColorPickerRow
+                                label="Background Color"
+                                color={buttonColor}
+                                onChange={setButtonColor}
+                            />
+                            <ColorPickerRow
+                                label="Text Color"
+                                color={textColor}
+                                onChange={setTextColor}
+                            />
+
+                            {/* Font Size */}
                             <div className="omni-form-group">
-                                <label className="omni-label">Button Color</label>
-                                <div className="omni-color-row">
-                                    <div className="omni-color-picker-wrap" title="Custom color">
-                                        <div className="omni-color-swatch-preview" style={{ backgroundColor: buttonColor || '#2e2e2e' }} />
-                                        <input type="color" value={buttonColor || '#2e2e2e'} onChange={e => setButtonColor(e.target.value)} className="omni-color-input" />
-                                    </div>
-                                    <div className="omni-swatches">
-                                        {COLOR_SWATCHES.map((s, i) => (
-                                            <div
-                                                key={i}
-                                                className={`omni-swatch ${buttonColor === s.val ? 'selected' : ''}`}
-                                                style={{ backgroundColor: s.val || '#2e2e2e' }}
-                                                title={s.label}
-                                                onClick={() => setButtonColor(s.val)}
-                                            >
-                                                {!s.val && <span className="omni-swatch-x">✕</span>}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                <label className="omni-label">Font Size <span className="omni-label-hint">(optional)</span></label>
+                                <input
+                                    className="omni-input"
+                                    type="text"
+                                    value={fontSize}
+                                    onChange={e => setFontSize(e.target.value)}
+                                    placeholder="e.g. 10px, 12px, 14px"
+                                />
                             </div>
 
                             {/* Icon + Size row */}

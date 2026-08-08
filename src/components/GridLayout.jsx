@@ -58,14 +58,32 @@ const GridLayout = ({ layout, spacePath }) => {
     }, [config, layout, spacePath, updateConfig]);
 
     // ── Pointer handlers ──────────────────────────────────────────────────
+    const lastClickRef = useRef({ time: 0, id: null });
+
     const handlePointerDown = (e, item, type, handle = null) => {
         if (!isEditing) return;
-        setSelectedItemId(item.id);
-        if (e.target.closest('.modal-overlay')) return;
-        e.preventDefault();
         e.stopPropagation();
-        e.target.setPointerCapture(e.pointerId);
-        setInteractionState({ type, handle, itemId: item.id, startX: e.clientX, startY: e.clientY, initialItem: { ...item } });
+        setSelectedItemId(item.id);
+
+        // UXP Double-click detection for grid items
+        const now = Date.now();
+        if (lastClickRef.current.id === item.id && (now - lastClickRef.current.time) < 350) {
+            lastClickRef.current = { time: 0, id: null };
+            handleEditItem(item);
+            return;
+        }
+        lastClickRef.current = { time: now, id: item.id };
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        setInteractionState({
+            type,
+            itemId: item.id,
+            startX,
+            startY,
+            initialItem: { ...item },
+            handle
+        });
     };
 
     const handlePointerMove = (e) => {
@@ -106,12 +124,23 @@ const GridLayout = ({ layout, spacePath }) => {
     // ── Add item ──────────────────────────────────────────────────────────
     const handleAddItem = () => {
         const maxY = Math.max(...localItems.map(i => (i.y || 0) + (i.h || 1)), 0);
-        showModal('add_item', (newItem) => {
-            const itemToAdd = { ...newItem, id: `btn_${Date.now()}`, x: 0, y: maxY, w: 3, h: 1 };
-            const updated = [...localItems, itemToAdd];
-            setLocalItems(updated);
-            saveLayout(updated);
-        }, { type: 'button' });
+        showModal('add_item_select', (selectedType) => {
+            if (!selectedType) return;
+            showModal('add_item', (newItem) => {
+                const isLabel = selectedType === 'label';
+                const itemToAdd = { 
+                    ...newItem, 
+                    id: `btn_${Date.now()}`, 
+                    x: 0, 
+                    y: maxY, 
+                    w: isLabel ? 6 : 3, 
+                    h: 1 
+                };
+                const updated = [...localItems, itemToAdd];
+                setLocalItems(updated);
+                saveLayout(updated);
+            }, { type: selectedType });
+        });
     };
 
     // ── Edit item ─────────────────────────────────────────────────────────
@@ -157,6 +186,9 @@ const GridLayout = ({ layout, spacePath }) => {
             ref={containerRef}
             className={`omni-grid ${isEditing ? 'is-editing' : ''}`}
             onPointerDown={(e) => { if (isEditing && e.target === containerRef.current) setSelectedItemId(null); }}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerUp}
             style={{ position: 'relative', width: '100%', height: `${contentHeight}px`, boxSizing: 'border-box' }}
         >
             {localItems.map(item => {
@@ -169,9 +201,6 @@ const GridLayout = ({ layout, spacePath }) => {
                         key={item.id}
                         className={`omni-grid-item ${isInteracting ? 'interacting' : ''} ${isSelected && isEditing ? 'selected' : ''}`}
                         onPointerDown={(e) => handlePointerDown(e, item, 'drag')}
-                        onPointerMove={handlePointerMove}
-                        onPointerUp={handlePointerUp}
-                        onPointerLeave={handlePointerUp}
                         onDoubleClick={(e) => { if (isEditing) { e.stopPropagation(); handleEditItem(item); } }}
                         onContextMenu={(e) => handleContextMenu(e, item)}
                         onClick={(e) => { if (isEditing) e.stopPropagation(); }}
@@ -196,17 +225,28 @@ const GridLayout = ({ layout, spacePath }) => {
                         {/* Item content */}
                         <div style={{ width: '100%', height: '100%', pointerEvents: isEditing ? 'none' : 'auto', overflow: 'hidden' }}>
                             {item.type === 'label' ? (
-                                <div className="omni-label-item" style={{
-                                    justifyContent: item.textAlign === 'center' ? 'center' : item.textAlign === 'right' ? 'flex-end' : 'flex-start',
-                                    color: item.textColor || 'var(--color-label)',
-                                    fontWeight: item.fontWeight || '600',
-                                    fontStyle: item.fontStyle || 'normal',
-                                    textTransform: item.textTransform || 'uppercase',
-                                    fontSize: item.fontSize || '10px',
-                                    background: item.backgroundColor || 'transparent',
-                                    paddingLeft: item.textAlign === 'center' ? 0 : '8px',
-                                }}>
-                                    {item.text || item.label || 'Label'}
+                                <div
+                                    className="omni-label-item"
+                                    style={{
+                                        display: 'block',
+                                        width: '100%',
+                                        height: '100%',
+                                        background: item.backgroundColor || 'transparent',
+                                        padding: '0 8px',
+                                        boxSizing: 'border-box',
+                                        textAlign: item.textAlign || 'left',
+                                        lineHeight: `${(item.h || 1) * 32}px`,
+                                        color: item.textColor || '#ffffff',
+                                        fontWeight: item.fontWeight || '600',
+                                        fontStyle: item.fontStyle || 'normal',
+                                        textTransform: item.textTransform || 'uppercase',
+                                        fontSize: item.fontSize || '10px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {(item.text || item.label || 'Label').trim()}
                                 </div>
                             ) : (
                                 <ActionButton {...item} label={item.label || item.text} />

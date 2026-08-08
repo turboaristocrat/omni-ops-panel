@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ButtonEditModal from './ButtonEditModal';
+import LabelEditModal from './LabelEditModal';
 
 /**
  * ModalManager
@@ -13,11 +14,22 @@ const ModalManager = ({ modalState, closeModal }) => {
     if (!isOpen) return null;
 
     const handleConfirm = (data) => {
-        onConfirm && onConfirm(data);
         closeModal();
+        onConfirm && onConfirm(data);
     };
 
     const handleCancel = () => closeModal();
+
+    // ── Label add/edit ───────────────────────────────────────────────────
+    if ((type === 'add_item' || type === 'edit_item') && initialData?.type === 'label') {
+        return (
+            <LabelEditModal
+                initialData={initialData}
+                onConfirm={handleConfirm}
+                onCancel={handleCancel}
+            />
+        );
+    }
 
     // ── Button add/edit ──────────────────────────────────────────────────
     if (type === 'add_item' || type === 'edit_item') {
@@ -46,6 +58,36 @@ const ModalManager = ({ modalState, closeModal }) => {
                     <div className="omni-modal-footer">
                         <button className="omni-btn omni-btn-cancel" onClick={handleCancel}>Cancel</button>
                         <button className="omni-btn omni-btn-danger" onClick={() => handleConfirm(true)}>Confirm</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ── Add Item Type Selection ──────────────────────────────────────────
+    if (type === 'add_item_select') {
+        return (
+            <div className="omni-modal-overlay">
+                <div className="omni-modal omni-modal--sm" style={{ width: 280 }}>
+                    <div className="omni-modal-header">
+                        <h3 className="omni-modal-title">Select Item Type</h3>
+                        <div className="omni-modal-close" onClick={handleCancel} role="button">×</div>
+                    </div>
+                    <div className="omni-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <button 
+                            className="omni-btn" 
+                            style={{ padding: '12px', background: '#0265DC', border: 'none' }}
+                            onClick={() => handleConfirm('button')}
+                        >
+                            + Action Button
+                        </button>
+                        <button 
+                            className="omni-btn" 
+                            style={{ padding: '12px', background: '#333', border: '1px solid #555' }}
+                            onClick={() => handleConfirm('label')}
+                        >
+                            + Section Label
+                        </button>
                     </div>
                 </div>
             </div>

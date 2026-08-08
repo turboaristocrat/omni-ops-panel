@@ -101,12 +101,15 @@ body {
    PANEL STRUCTURE
    ═══════════════════════════════════════════════════════════════ */
 .omni-panel {
+    position: relative;
     display: flex;
     flex-direction: column;
     height: 100vh;
-    overflow: hidden;
     background: var(--bg-panel);
-    transition: all var(--transition-normal);
+    color: var(--color-text);
+    font-family: var(--font);
+    overflow: hidden;
+    user-select: none;
 }
 
 /* ── Header ───────────────────────────────────────────────────── */
@@ -319,10 +322,16 @@ body {
     z-index: 201;
     transition: background var(--transition-fast), transform var(--transition-fast);
 }
+.resize-handle::after {
+    content: '';
+    position: absolute;
+    top: -15px; bottom: -15px; left: -15px; right: -15px;
+    background: transparent;
+}
 .resize-handle:hover { background: var(--color-accent-hover); transform: scale(1.3); }
-.resize-e  { right: 0;  top: 50%; transform: translateY(-50%); width: 5px; height: 18px; cursor: e-resize; }
-.resize-s  { bottom: 0; left: 50%; transform: translateX(-50%); height: 5px; width: 18px; cursor: s-resize; }
-.resize-se { bottom: 0; right: 0; width: 8px; height: 8px; cursor: se-resize; }
+.resize-e  { right: -2px;  top: 50%; transform: translateY(-50%); width: 8px; height: 24px; cursor: e-resize; }
+.resize-s  { bottom: -2px; left: 50%; transform: translateX(-50%); height: 8px; width: 24px; cursor: s-resize; }
+.resize-se { bottom: -2px; right: -2px; width: 12px; height: 12px; cursor: se-resize; }
 .resize-e:hover { transform: translateY(-50%) scale(1.3); }
 .resize-s:hover { transform: translateX(-50%) scale(1.3); }
 
@@ -418,8 +427,6 @@ body {
     font-weight: 600;
     letter-spacing: 0.8px;
     text-transform: uppercase;
-    color: var(--color-label);
-    background: var(--bg-label);
     border-bottom: 1px solid var(--color-border);
     user-select: none;
     overflow: hidden;
@@ -431,10 +438,13 @@ body {
    MODALS
    ═══════════════════════════════════════════════════════════════ */
 .omni-modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.65);
-    z-index: 1000;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 9999;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -449,13 +459,14 @@ body {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-modal);
     width: 320px;
-    max-height: 90vh;
+    max-height: 85vh;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     animation: slideUp var(--transition-normal);
     overflow: hidden;
 }
-.omni-modal--sm { width: 240px; }
+.omni-modal--sm { width: 260px; }
 
 @keyframes slideUp { from { opacity: 0; transform: translateY(12px) scale(0.97); } to { opacity: 1; transform: none; } }
 
@@ -503,7 +514,9 @@ body {
 .omni-modal-tab.active { color: var(--color-accent); border-bottom-color: var(--color-accent); }
 
 .omni-modal-body {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 260px;
     overflow-y: auto;
     padding: 14px;
 }
@@ -536,15 +549,18 @@ body {
 .omni-label-hint { font-weight: 400; text-transform: none; color: var(--color-text-muted); letter-spacing: 0; }
 
 .omni-input, .omni-select {
-    background: var(--bg-input);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    background: #1a1a1a;
+    border: 1px solid var(--color-border-hi);
+    border-radius: var(--radius-md);
     color: var(--color-text);
     font-family: var(--font);
     font-size: var(--font-size-sm);
+    height: 28px;
+    line-height: 26px;
+    padding: 0 8px;
+    box-sizing: border-box;
     outline: none;
-    padding: 6px 8px;
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    transition: border-color var(--transition-fast);
     width: 100%;
 }
 .omni-input:focus, .omni-select:focus { border-color: var(--color-accent); box-shadow: 0 0 0 2px rgba(0,120,212,0.2); }
