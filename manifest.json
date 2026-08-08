@@ -2,7 +2,7 @@
     "id": "com.omniops.panel",
     "name": "Omni Ops",
     "version": "0.1.0",
-    "main": "dist/index.js",
+    "main": "index.html",
     "host": {
         "app": "PS",
         "minVersion": "25.2.0",
