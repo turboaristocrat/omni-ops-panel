@@ -1,9 +1,14 @@
 import React from 'react';
 import { usePanel } from '../context/PanelContext';
 
+import pencilDark from '../assets/pencil-dark.png';
+import pencilLight from '../assets/pencil-light.png';
+import trashLight from '../assets/trash-light.png';
+
 /**
  * TabBar
- * Renders space tabs. In edit mode: double-click to rename, × to delete, + to add.
+ * Renders space tabs and edit mode controls using div elements instead of native <button>
+ * to prevent UXP native button background overrides.
  */
 const TabBar = ({ onDeleteSelected, isMini }) => {
     const { config, activeSpaceId, setActiveSpaceId, isEditing, setIsEditing, selectedItemId, updateConfig, showModal } = usePanel();
@@ -15,7 +20,7 @@ const TabBar = ({ onDeleteSelected, isMini }) => {
             const newSpace = {
                 id: newId,
                 name: data.label || 'New Tab',
-                layout: { type: 'grid', columns: 8, items: [] }
+                layout: { type: 'grid', columns: 6, items: [] }
             };
             const newConfig = JSON.parse(JSON.stringify(config));
             newConfig.panels[0].spaces.push(newSpace);
@@ -59,20 +64,21 @@ const TabBar = ({ onDeleteSelected, isMini }) => {
                         onClick={() => setActiveSpaceId(space.id)}
                         onDoubleClick={(e) => isEditing && handleRenameSpace(e, space.id, space.name)}
                         title={isEditing ? 'Double-click to rename' : space.name}
-                        style={{ paddingRight: isEditing ? 24 : undefined }}
+                        style={{ paddingRight: (isEditing && spaces.length > 1 && activeSpaceId === space.id) ? 28 : 14 }}
                     >
                         <span className="omni-tab-label">{space.name}</span>
                         {isEditing && spaces.length > 1 && activeSpaceId === space.id && (
-                            <button
+                            <span
                                 className="omni-tab-delete"
                                 onClick={(e) => handleDeleteSpace(e, space.id)}
                                 title="Delete Tab"
-                            >✕</button>
+                                role="button"
+                            >✕</span>
                         )}
                     </div>
                 ))}
                 {isEditing && (
-                    <div className="omni-tab omni-tab-add" onClick={handleAddSpace} title="Add Tab">
+                    <div className="omni-tab omni-tab-add" onClick={handleAddSpace} title="Add Tab" role="button">
                         +
                     </div>
                 )}
@@ -80,21 +86,27 @@ const TabBar = ({ onDeleteSelected, isMini }) => {
             
             <div className="omni-header-actions">
                 {isEditing && selectedItemId && (
-                    <button
+                    <div
                         className="omni-header-btn omni-header-btn--danger"
                         onClick={onDeleteSelected}
-                        title="Delete Selected Button"
+                        title="Delete Selected Item"
+                        role="button"
                     >
-                        🗑
-                    </button>
+                        <img src={trashLight} style={{ width: 18, height: 18, display: 'block' }} alt="Delete" />
+                    </div>
                 )}
-                <button
+                <div
                     className={`omni-header-btn ${isEditing ? 'active edit-pencil' : ''}`}
                     onClick={() => setIsEditing(!isEditing)}
                     title={isEditing ? 'Exit Edit Mode' : 'Enter Edit Mode'}
+                    role="button"
                 >
-                    {isEditing ? '✏' : '✏'}
-                </button>
+                    <img
+                        src={isEditing ? pencilDark : pencilLight}
+                        style={{ width: 18, height: 18, display: 'block' }}
+                        alt="Edit"
+                    />
+                </div>
             </div>
         </div>
     );

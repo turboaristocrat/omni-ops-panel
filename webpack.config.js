@@ -6,6 +6,7 @@ module.exports = {
     output: {
         filename: 'index.js',
         path: path.resolve(__dirname, 'dist'),
+        publicPath: 'dist/',
         clean: true,
     },
     module: {
@@ -23,6 +24,13 @@ module.exports = {
             {
                 test: /\.css$/,
                 use: ['style-loader', 'css-loader']
+            },
+            {
+                test: /\.(png|svg)$/,
+                type: 'asset/resource',
+                generator: {
+                    filename: 'assets/[name][ext]'
+                }
             }
         ]
     },

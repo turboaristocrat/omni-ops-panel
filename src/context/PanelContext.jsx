@@ -15,15 +15,15 @@ const DEFAULT_CONFIG = {
             name: 'My Tools',
             layout: {
                 type: 'grid',
-                columns: 8,
+                columns: 6,
                 items: [
-                    { id: 'lbl_welcome', x: 0, y: 0, w: 8, h: 2, type: 'label', text: '   OMNI OPS   ', style: 'header' },
-                    { id: 'btn_cc_match', x: 0, y: 2, w: 8, h: 2, type: 'button', label: 'CC Match Layers', actionType: 'customFunc', actionValue: 'ccMatchLayers' },
-                    { id: 'lbl_grade', x: 0, y: 4, w: 8, h: 2, type: 'label', text: '   COLOR GRADE   ', style: 'header' },
-                    { id: 'btn_levels', x: 0, y: 6, w: 4, h: 2, type: 'button', label: 'Levels Lum', actionType: 'customFunc', actionValue: 'createLevelsLum' },
-                    { id: 'btn_huesat', x: 4, y: 6, w: 4, h: 2, type: 'button', label: 'HueSat Color', actionType: 'customFunc', actionValue: 'createHueSatColor' },
-                    { id: 'btn_curves', x: 0, y: 8, w: 4, h: 2, type: 'button', label: 'Curves Color', actionType: 'customFunc', actionValue: 'createCurvesColor' },
-                    { id: 'btn_all', x: 4, y: 8, w: 4, h: 2, type: 'button', label: 'Create All 3', actionType: 'customFunc', actionValue: 'createColorGradeStack' },
+                    { id: 'lbl_welcome', x: 0, y: 0, w: 6, h: 1, type: 'label', text: '   OMNI OPS   ', style: 'header' },
+                    { id: 'btn_cc_match', x: 0, y: 1, w: 6, h: 1, type: 'button', label: 'CC Match Layers', actionType: 'customFunc', actionValue: 'ccMatchLayers' },
+                    { id: 'lbl_grade', x: 0, y: 2, w: 6, h: 1, type: 'label', text: '   COLOR GRADE   ', style: 'header' },
+                    { id: 'btn_levels', x: 0, y: 3, w: 3, h: 1, type: 'button', label: 'Levels Lum', actionType: 'customFunc', actionValue: 'createLevelsLum' },
+                    { id: 'btn_huesat', x: 3, y: 3, w: 3, h: 1, type: 'button', label: 'HueSat Color', actionType: 'customFunc', actionValue: 'createHueSatColor' },
+                    { id: 'btn_curves', x: 0, y: 4, w: 3, h: 1, type: 'button', label: 'Curves Color', actionType: 'customFunc', actionValue: 'createCurvesColor' },
+                    { id: 'btn_all', x: 3, y: 4, w: 3, h: 1, type: 'button', label: 'Create All 3', actionType: 'customFunc', actionValue: 'createColorGradeStack' },
                 ]
             }
         }]

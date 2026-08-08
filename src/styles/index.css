@@ -167,10 +167,11 @@ body {
 .omni-tabbar {
     display: flex;
     flex-direction: row;
-    align-items: center;
+    align-items: stretch;
     justify-content: space-between;
-    background: var(--bg-tab);
-    border-bottom: 1px solid var(--color-border);
+    background: #252525;
+    border-bottom: 1px solid #1a1a1a;
+    height: 36px;
     flex-shrink: 0;
 }
 .omni-tabs-scroll {
@@ -183,24 +184,38 @@ body {
 .omni-tabs-scroll::-webkit-scrollbar { display: none; }
 .omni-tab {
     position: relative;
-    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 0 14px;
     font-size: var(--font-size-md);
     font-weight: 600;
-    color: var(--color-text-dim);
+    color: #aaaaaa;
     cursor: pointer;
-    border-right: 1px solid var(--color-border);
-    border-bottom: 2px solid transparent;
+    border-right: 1px solid #1a1a1a;
+    border-bottom: 3px solid transparent;
+    box-sizing: border-box;
     white-space: nowrap;
     user-select: none;
     transition: background var(--transition-fast), color var(--transition-fast);
     min-width: 40px;
     text-align: center;
 }
-.omni-tab:hover { background: var(--bg-button-hover); color: var(--color-text); }
+.omni-tab:hover { background: #2c2c2c; color: #ffffff; }
 .omni-tab.active {
-    background: var(--bg-panel);
-    color: var(--color-text);
-    border-bottom: 2px solid var(--color-accent);
+    background: #323232;
+    color: #ffffff;
+}
+.omni-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background-color: #0265DC;
+    z-index: 10;
 }
 .omni-tab-label { display: block; }
 .omni-tab-delete {
@@ -225,22 +240,25 @@ body {
 .omni-header-actions {
     display: flex;
     align-items: center;
-    padding: 0 0 0 4px;
-    height: 32px;
+    padding: 0;
+    height: 38px;
 }
 .omni-header-btn {
     background: transparent;
     border: none;
-    color: var(--color-text-muted);
     cursor: pointer;
-    font-size: 16px;
-    padding: 4px 8px;
-    line-height: 1;
+    padding: 0 10px;
     height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    box-sizing: border-box;
 }
-.omni-header-btn:hover { color: var(--color-text); }
-.omni-header-btn.edit-pencil { background: var(--color-accent); color: #fff; display: flex; align-items: center; justify-content: center; width: 36px; padding: 0; }
-.omni-header-btn.edit-pencil:hover { background: var(--color-accent-hover); }
+.omni-header-btn:hover { background: rgba(255, 255, 255, 0.1); }
+.omni-header-btn--danger:hover { background: #d32f2f !important; }
+.omni-header-btn.edit-pencil { background: #0265DC; width: 38px; padding: 0; }
+.omni-header-btn.edit-pencil:hover { background: #0054b8; }
 
 /* ── Space Wrapper ────────────────────────────────────────────── */
 .omni-space-wrapper { flex: 1; overflow-y: auto; overflow-x: hidden; }
@@ -347,7 +365,7 @@ body {
     color: var(--color-text);
     cursor: pointer;
     font-family: var(--font);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     font-weight: 700;
     padding: 3px 5px;
     overflow: hidden;
@@ -394,7 +412,8 @@ body {
     height: 100%;
     display: flex;
     align-items: center;
-    padding: 2px 6px;
+    padding: 0 8px;
+    box-sizing: border-box;
     font-size: var(--font-size-xs);
     font-weight: 600;
     letter-spacing: 0.8px;

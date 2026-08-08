@@ -40,8 +40,8 @@ const GridLayout = ({ layout, spacePath }) => {
         return () => observer.disconnect();
     }, []);
 
-    const colCount = layout.columns || 8;
-    const rowHeight = Math.max(20, Math.floor(containerWidth / colCount));
+    const colCount = 6;
+    const rowHeight = 32; // Photoshop panel row height (32px)
     const maxRow = Math.max(...localItems.map(i => (i.y || 0) + (i.h || 1)), 0);
     const contentHeight = maxRow * rowHeight;
 
@@ -107,7 +107,7 @@ const GridLayout = ({ layout, spacePath }) => {
     const handleAddItem = () => {
         const maxY = Math.max(...localItems.map(i => (i.y || 0) + (i.h || 1)), 0);
         showModal('add_item', (newItem) => {
-            const itemToAdd = { ...newItem, id: `btn_${Date.now()}`, x: 0, y: maxY, w: 4, h: 2 };
+            const itemToAdd = { ...newItem, id: `btn_${Date.now()}`, x: 0, y: maxY, w: 3, h: 1 };
             const updated = [...localItems, itemToAdd];
             setLocalItems(updated);
             saveLayout(updated);
@@ -197,13 +197,14 @@ const GridLayout = ({ layout, spacePath }) => {
                         <div style={{ width: '100%', height: '100%', pointerEvents: isEditing ? 'none' : 'auto', overflow: 'hidden' }}>
                             {item.type === 'label' ? (
                                 <div className="omni-label-item" style={{
-                                    justifyContent: item.textAlign === 'left' ? 'flex-start' : item.textAlign === 'right' ? 'flex-end' : 'center',
+                                    justifyContent: item.textAlign === 'center' ? 'center' : item.textAlign === 'right' ? 'flex-end' : 'flex-start',
                                     color: item.textColor || 'var(--color-label)',
-                                    fontWeight: item.fontWeight || 'normal',
+                                    fontWeight: item.fontWeight || '600',
                                     fontStyle: item.fontStyle || 'normal',
-                                    textTransform: item.textTransform || 'none',
-                                    fontSize: item.fontSize || '11px',
-                                    background: item.backgroundColor || 'var(--bg-label)',
+                                    textTransform: item.textTransform || 'uppercase',
+                                    fontSize: item.fontSize || '10px',
+                                    background: item.backgroundColor || 'transparent',
+                                    paddingLeft: item.textAlign === 'center' ? 0 : '8px',
                                 }}>
                                     {item.text || item.label || 'Label'}
                                 </div>
