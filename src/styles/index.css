@@ -167,21 +167,29 @@ body {
 .omni-tabbar {
     display: flex;
     flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     background: var(--bg-tab);
     border-bottom: 1px solid var(--color-border);
-    overflow-x: auto;
-    scrollbar-width: none;
     flex-shrink: 0;
 }
-.omni-tabbar::-webkit-scrollbar { display: none; }
+.omni-tabs-scroll {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex: 1;
+}
+.omni-tabs-scroll::-webkit-scrollbar { display: none; }
 .omni-tab {
     position: relative;
-    padding: 5px 10px;
-    font-size: var(--font-size-xs);
-    font-weight: 500;
+    padding: 6px 12px;
+    font-size: var(--font-size-md);
+    font-weight: 600;
     color: var(--color-text-dim);
     cursor: pointer;
     border-right: 1px solid var(--color-border);
+    border-bottom: 2px solid transparent;
     white-space: nowrap;
     user-select: none;
     transition: background var(--transition-fast), color var(--transition-fast);
@@ -190,28 +198,49 @@ body {
 }
 .omni-tab:hover { background: var(--bg-button-hover); color: var(--color-text); }
 .omni-tab.active {
-    background: var(--bg-tab-active);
+    background: var(--bg-panel);
     color: var(--color-text);
     border-bottom: 2px solid var(--color-accent);
 }
 .omni-tab-label { display: block; }
 .omni-tab-delete {
     position: absolute;
-    right: 3px;
+    right: 2px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
     color: var(--color-text-muted);
     cursor: pointer;
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1;
-    padding: 0 2px;
+    padding: 0 4px;
     border-radius: 2px;
 }
-.omni-tab-delete:hover { color: var(--color-danger); background: #ff000020; }
-.omni-tab-add { color: var(--color-accent); font-size: 16px; font-weight: 400; padding: 4px 10px; }
-.omni-tab-add:hover { background: var(--bg-button-active); }
+.omni-tab-delete:hover { color: var(--color-danger); }
+.omni-tab-add { color: var(--color-text-dim); font-size: 16px; font-weight: 400; padding: 4px 10px; border-right: none; }
+.omni-tab-add:hover { color: var(--color-text); }
+
+/* ── Header Actions in TabBar ─────────────────────────────────── */
+.omni-header-actions {
+    display: flex;
+    align-items: center;
+    padding: 0 0 0 4px;
+    height: 32px;
+}
+.omni-header-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    line-height: 1;
+    height: 100%;
+}
+.omni-header-btn:hover { color: var(--color-text); }
+.omni-header-btn.edit-pencil { background: var(--color-accent); color: #fff; display: flex; align-items: center; justify-content: center; width: 36px; padding: 0; }
+.omni-header-btn.edit-pencil:hover { background: var(--color-accent-hover); }
 
 /* ── Space Wrapper ────────────────────────────────────────────── */
 .omni-space-wrapper { flex: 1; overflow-y: auto; overflow-x: hidden; }
