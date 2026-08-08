@@ -8,7 +8,7 @@ export const commonTools = [
     { label: "Lasso", value: "lassoTool" },
     { label: "Polygonal Lasso", value: "polyLassoTool" },
     { label: "Magnetic Lasso", value: "magneticLassoTool" },
-    { label: "Object Selection", value: "objectSelectTool" },
+    { label: "Object Selection", value: "objectSelectionTool" },
     { label: "Quick Selection", value: "quickSelectTool" },
     { label: "Magic Wand", value: "magicWandTool" },
     { label: "Crop", value: "cropTool" },

@@ -153,7 +153,7 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
     const [fontSize, setFontSize] = useState('11px');
     const [shortcut, setShortcut] = useState('');
 
-    const [activeTab, setActiveTab] = useState('action');
+    const [activeTab, setActiveTab] = useState('appearance');
     const [errors, setErrors] = useState({});
 
     // Populate from initialData on open
@@ -296,13 +296,13 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
 
                 {/* Tabs */}
                 <div className="omni-modal-tabs">
-                    {['action', 'appearance'].map(tab => (
+                    {['appearance', 'action'].map(tab => (
                         <button
                             key={tab}
                             className={`omni-modal-tab ${activeTab === tab ? 'active' : ''}`}
                             onClick={() => setActiveTab(tab)}
                         >
-                            {tab === 'action' ? '⚡ Action' : '🎨 Appearance'}
+                            {tab === 'appearance' ? '🎨 Appearance' : '⚡ Action'}
                         </button>
                     ))}
                 </div>
@@ -396,14 +396,14 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
 
                             {/* Color Pickers */}
                             <ColorPickerRow
-                                label="Background Color"
-                                color={buttonColor}
-                                onChange={setButtonColor}
-                            />
-                            <ColorPickerRow
                                 label="Text Color"
                                 color={textColor}
                                 onChange={setTextColor}
+                            />
+                            <ColorPickerRow
+                                label="Background Color"
+                                color={buttonColor}
+                                onChange={setButtonColor}
                             />
 
                             {/* Font Size */}

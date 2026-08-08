@@ -66,18 +66,25 @@ export const executeAction = async (actionType, actionValue, options = {}) => {
             // ── Menu Commands ────────────────────────────────────────────────
             case 'menu':
                 await _executeMenuCommand(String(actionValue).trim());
+                if (options.clippingMask) {
+                    await core.executeAsModal(async () => { await LayerService.makeClippingMask(); }, { commandName: "Clipping Mask" });
+                }
                 break;
 
             // ── Play Photoshop Action ────────────────────────────────────────
             case 'playAction':
             case 'action':
                 await _playAction(String(actionValue));
+                if (options.clippingMask) {
+                    await core.executeAsModal(async () => { await LayerService.makeClippingMask(); }, { commandName: "Clipping Mask" });
+                }
                 break;
 
             // ── Built-in Custom Workflow Functions ───────────────────────────
             case 'customFunc':
                 await core.executeAsModal(async () => {
                     await _runCustomFunc(actionValue, options);
+                    if (options.clippingMask) await LayerService.makeClippingMask();
                 }, { commandName: `Custom: ${actionValue}` });
                 break;
 
@@ -92,6 +99,7 @@ export const executeAction = async (actionType, actionValue, options = {}) => {
             case 'adjustment':
                 await core.executeAsModal(async () => {
                     await LayerService.createAdjustmentLayer(actionValue);
+                    if (options.clippingMask) await LayerService.makeClippingMask();
                 }, { commandName: `New Adjustment Layer: ${actionValue}` });
                 break;
 
@@ -131,16 +139,28 @@ export const executeAction = async (actionType, actionValue, options = {}) => {
 // ─── Tool Selection ──────────────────────────────────────────────────────────
 
 async function _selectTool(toolId) {
+    if (toolId === 'objectSelectTool') {
+        toolId = 'objectSelectionTool';
+    }
     try {
-        await core.executeAsModal(async () => {
-            await batchPlay([{
-                _obj: 'select',
-                _target: [{ _ref: 'tool', _enum: 'tool', _value: toolId }]
-            }], { modalBehavior: 'execute' });
-        }, { commandName: `Select Tool: ${toolId}` });
-    } catch (e) {
-        console.error(`[ActionService] Tool selection failed for "${toolId}":`, e);
-        await core.showAlert(`Could not select tool: ${toolId}`);
+        const { app } = require('photoshop');
+        // Try direct DOM selection first
+        app.currentTool = toolId;
+    } catch (domError) {
+        console.warn(`[ActionService] DOM tool selection failed for "${toolId}", trying batchPlay:`, domError);
+        try {
+            await core.executeAsModal(async () => {
+                const { action } = require('photoshop');
+                const { batchPlay } = action;
+                await batchPlay([{
+                    _obj: 'select',
+                    _target: [{ _ref: 'tool', _enum: 'tool', _value: toolId }]
+                }], { modalBehavior: 'execute' });
+            }, { commandName: `Select Tool: ${toolId}` });
+        } catch (bpError) {
+            console.error(`[ActionService] Tool selection failed for "${toolId}":`, bpError);
+            await core.showAlert(`Could not select tool: ${toolId}`);
+        }
     }
 }
 
