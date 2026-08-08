@@ -57,6 +57,29 @@ const Panel = () => {
             ref={panelRef}
             className={`omni-panel ${isMini ? 'mini-mode' : ''} ${isCompact ? 'compact-mode' : ''} ${isEditing ? 'edit-mode' : ''}`}
         >
+            {/* Header */}
+            <div className="omni-header">
+                {!isMini && <span className="omni-header-title">OMNI OPS</span>}
+                <div className="omni-header-actions">
+                    {isEditing && selectedItemId && (
+                        <button
+                            className="omni-header-btn omni-header-btn--danger"
+                            onClick={handleDeleteSelected}
+                            title="Delete Selected"
+                        >
+                            🗑
+                        </button>
+                    )}
+                    <button
+                        className={editBtnClass}
+                        onClick={() => setIsEditing(!isEditing)}
+                        title={isEditing ? 'Exit Edit Mode' : 'Enter Edit Mode'}
+                    >
+                        {isEditing ? '✓' : '✏'}
+                    </button>
+                </div>
+            </div>
+
             {/* Edit Mode Banner */}
             {isEditing && (
                 <div className="omni-edit-banner">
@@ -64,11 +87,8 @@ const Panel = () => {
                 </div>
             )}
 
-            {/* Tab Bar / Header */}
-            <TabBar 
-                onDeleteSelected={handleDeleteSelected} 
-                isMini={isMini} 
-            />
+            {/* Tab Bar */}
+            {spaces.length > 1 || isEditing ? <TabBar /> : null}
 
             {/* Space Content */}
             <div className="omni-space-wrapper">
