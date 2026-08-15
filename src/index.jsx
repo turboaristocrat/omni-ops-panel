@@ -14,9 +14,11 @@ const fs = storage.localFileSystem;
 
 // ── Panel Entrypoint ──────────────────────────────────────────────────────────
 const App = () => (
-    <PanelProvider>
-        <Panel />
-    </PanelProvider>
+    <sp-theme theme="spectrum" color="dark" scale="medium">
+        <PanelProvider>
+            <Panel />
+        </PanelProvider>
+    </sp-theme>
 );
 
 // ── Register all entrypoints ──────────────────────────────────────────────────

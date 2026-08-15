@@ -15,7 +15,7 @@ const MIN_H = 1;
  * (based on the actual space index), NOT hardcoded to spaces[0].
  */
 const GridLayout = ({ layout, spacePath }) => {
-    const { isEditing, updateConfig, config, showModal, selectedItemId, setSelectedItemId } = usePanel();
+    const { isEditing, updateConfig, config, showModal, selectedItemId, setSelectedItemId, selectedItemIds, setSelectedItemIds } = usePanel();
     const containerRef = useRef(null);
     const [localItems, setLocalItems] = useState(layout.items || []);
     const [containerWidth, setContainerWidth] = useState(300);
@@ -47,15 +47,21 @@ const GridLayout = ({ layout, spacePath }) => {
 
     // ── Save layout to config ─────────────────────────────────────────────
     const saveLayout = useCallback((items) => {
-        const newConfig = JSON.parse(JSON.stringify(config));
-        let current = newConfig;
-        // Navigate to the layout using dynamic spacePath
-        for (let i = 0; i < spacePath.length - 1; i++) {
-            current = current[spacePath[i]];
-        }
-        current[spacePath[spacePath.length - 1]] = { ...layout, items };
-        updateConfig(newConfig);
-    }, [config, layout, spacePath, updateConfig]);
+        updateConfig(prevConfig => {
+            const newConfig = JSON.parse(JSON.stringify(prevConfig));
+            let current = newConfig;
+            for (let i = 0; i < spacePath.length - 1; i++) {
+                current = current[spacePath[i]];
+            }
+            if (current && current[spacePath[spacePath.length - 1]]) {
+                current[spacePath[spacePath.length - 1]] = {
+                    ...current[spacePath[spacePath.length - 1]],
+                    items
+                };
+            }
+            return newConfig;
+        });
+    }, [spacePath, updateConfig]);
 
     // ── Pointer handlers ──────────────────────────────────────────────────
     const lastClickRef = useRef({ time: 0, id: null });
@@ -63,7 +69,49 @@ const GridLayout = ({ layout, spacePath }) => {
     const handlePointerDown = (e, item, type, handle = null) => {
         if (!isEditing) return;
         e.stopPropagation();
-        setSelectedItemId(item.id);
+
+        const isShift = e.shiftKey;
+        let newIds = [...selectedItemIds];
+
+        if (isShift) {
+            // Find the last selected item (if any) to calculate range selection
+            const lastItem = localItems.find(it => it.id === selectedItemId);
+            if (lastItem && lastItem.id !== item.id) {
+                // Geometric range selection (bounding box)
+                const minX = Math.min((lastItem.x || 0), (item.x || 0));
+                const maxX = Math.max((lastItem.x || 0), (item.x || 0));
+                const minY = Math.min((lastItem.y || 0), (item.y || 0));
+                const maxY = Math.max((lastItem.y || 0), (item.y || 0));
+
+                // Find all items whose top-left coordinate is within the bounding box
+                const itemsInRange = localItems.filter(it => 
+                    (it.x || 0) >= minX && (it.x || 0) <= maxX &&
+                    (it.y || 0) >= minY && (it.y || 0) <= maxY
+                );
+
+                // Add all range items to selection
+                itemsInRange.forEach(it => {
+                    if (!newIds.includes(it.id)) {
+                        newIds.push(it.id);
+                    }
+                });
+            } else {
+                // Standard toggle behavior if no previous item was selected
+                if (newIds.includes(item.id)) {
+                    newIds = newIds.filter(id => id !== item.id);
+                } else {
+                    newIds.push(item.id);
+                }
+            }
+        } else {
+            // If the item clicked is not already in the selection list, clear others and select only it
+            if (!newIds.includes(item.id)) {
+                newIds = [item.id];
+            }
+        }
+        
+        setSelectedItemIds(newIds);
+        setSelectedItemId(item.id); // For single actions compatibility and tracking last-clicked item
 
         // UXP Double-click detection for grid items
         const now = Date.now();
@@ -76,19 +124,28 @@ const GridLayout = ({ layout, spacePath }) => {
 
         const startX = e.clientX;
         const startY = e.clientY;
+        
+        // Build map of initial states for all currently selected items
+        const initialItemsMap = {};
+        localItems.forEach(it => {
+            if (newIds.includes(it.id)) {
+                initialItemsMap[it.id] = { ...it };
+            }
+        });
+
         setInteractionState({
             type,
             itemId: item.id,
             startX,
             startY,
-            initialItem: { ...item },
+            initialItemsMap,
             handle
         });
     };
 
     const handlePointerMove = (e) => {
         if (!isEditing || !interactionState.type) return;
-        const { type, itemId, startX, startY, initialItem, handle } = interactionState;
+        const { type, itemId, startX, startY, initialItemsMap, handle } = interactionState;
         const container = containerRef.current;
         if (!container) return;
         const rect = container.getBoundingClientRect();
@@ -97,7 +154,9 @@ const GridLayout = ({ layout, spacePath }) => {
         const deltaGridY = Math.round((e.clientY - startY) / rowHeight);
 
         const newItems = localItems.map(it => {
-            if (it.id !== itemId) return it;
+            const initialItem = initialItemsMap && initialItemsMap[it.id];
+            if (!initialItem) return it;
+
             if (type === 'drag') {
                 return {
                     ...it,
@@ -105,6 +164,7 @@ const GridLayout = ({ layout, spacePath }) => {
                     y: Math.max(0, initialItem.y + deltaGridY)
                 };
             } else if (type === 'resize') {
+                if (it.id !== itemId) return it; // Only resize the primary item
                 let newW = initialItem.w, newH = initialItem.h;
                 if (handle === 'e' || handle === 'se') newW = Math.max(MIN_W, Math.min(initialItem.w + deltaGridX, colCount - initialItem.x));
                 if (handle === 's' || handle === 'se') newH = Math.max(MIN_H, initialItem.h + deltaGridY);
@@ -128,15 +188,40 @@ const GridLayout = ({ layout, spacePath }) => {
             if (!selectedType) return;
             showModal('add_item', (newItem) => {
                 const isLabel = selectedType === 'label';
-                const itemToAdd = { 
-                    ...newItem, 
-                    id: `btn_${Date.now()}`, 
-                    x: 0, 
-                    y: maxY, 
-                    w: isLabel ? 6 : 3, 
-                    h: 1 
-                };
-                const updated = [...localItems, itemToAdd];
+                
+                let newItemsArr = [];
+                if (Array.isArray(newItem)) {
+                    let currentY = maxY;
+                    let currentX = 0;
+                    newItem.forEach((config, idx) => {
+                        newItemsArr.push({
+                            type: 'button',
+                            ...config,
+                            id: `btn_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
+                            x: currentX,
+                            y: currentY,
+                            w: 3, // Default to half width for multi-added buttons
+                            h: 1
+                        });
+                        currentX += 3;
+                        if (currentX >= 6) {
+                            currentX = 0;
+                            currentY += 1; // Move down a row
+                        }
+                    });
+                } else {
+                    newItemsArr.push({ 
+                        ...newItem, 
+                        type: isLabel ? 'label' : (newItem.type || 'button'),
+                        id: `btn_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`, 
+                        x: 0, 
+                        y: maxY, 
+                        w: isLabel ? 6 : 3, 
+                        h: 1 
+                    });
+                }
+                
+                const updated = [...localItems, ...newItemsArr];
                 setLocalItems(updated);
                 saveLayout(updated);
             }, { type: selectedType });
@@ -145,10 +230,34 @@ const GridLayout = ({ layout, spacePath }) => {
 
     // ── Edit item ─────────────────────────────────────────────────────────
     const handleEditItem = (item) => {
-        showModal('edit_item', (updatedData) => {
-            const updated = localItems.map(it => it.id === item.id ? { ...it, ...updatedData } : it);
-            setLocalItems(updated);
-            saveLayout(updated);
+        showModal('edit_item', (result) => {
+            if (Array.isArray(result)) {
+                const [first, ...rest] = result;
+                const maxY = Math.max(...localItems.map(i => (i.y || 0) + (i.h || 1)), 0);
+                let currentY = maxY;
+                let currentX = 0;
+                const extraItems = rest.map((cfg, idx) => {
+                    const extra = {
+                        type: 'button',
+                        ...cfg,
+                        id: `btn_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
+                        x: currentX,
+                        y: currentY,
+                        w: 3,
+                        h: 1
+                    };
+                    currentX += 3;
+                    if (currentX >= 6) { currentX = 0; currentY += 1; }
+                    return extra;
+                });
+                const updated = localItems.map(it => it.id === item.id ? { ...it, ...first } : it).concat(extraItems);
+                setLocalItems(updated);
+                saveLayout(updated);
+            } else {
+                const updated = localItems.map(it => it.id === item.id ? { ...it, ...result } : it);
+                setLocalItems(updated);
+                saveLayout(updated);
+            }
         }, item);
     };
 
@@ -185,14 +294,15 @@ const GridLayout = ({ layout, spacePath }) => {
         <div
             ref={containerRef}
             className={`omni-grid ${isEditing ? 'is-editing' : ''}`}
-            onPointerDown={(e) => { if (isEditing && e.target === containerRef.current) setSelectedItemId(null); }}
+            onPointerDown={(e) => { if (isEditing && e.target === containerRef.current) { setSelectedItemId(null); setSelectedItemIds([]); } }}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
             style={{ position: 'relative', width: '100%', height: `${contentHeight}px`, boxSizing: 'border-box' }}
         >
             {localItems.map(item => {
-                const isSelected = selectedItemId === item.id;
+                const isSelected = selectedItemIds.includes(item.id);
+                const isActive = selectedItemId === item.id;
                 const isInteracting = interactionState.itemId === item.id;
                 const colWidthPct = 100 / colCount;
 
@@ -253,8 +363,8 @@ const GridLayout = ({ layout, spacePath }) => {
                             )}
                         </div>
 
-                        {/* Resize handles (when selected in edit mode) */}
-                        {isEditing && isSelected && (
+                        {/* Resize handles (only show on the active selected item) */}
+                        {isEditing && isActive && (
                             <>
                                 <div className="resize-handle resize-e" onPointerDown={(e) => handlePointerDown(e, item, 'resize', 'e')} />
                                 <div className="resize-handle resize-s" onPointerDown={(e) => handlePointerDown(e, item, 'resize', 's')} />

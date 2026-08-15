@@ -27,8 +27,9 @@ const LEGACY_ID_MAP = {
     '1178': 'matchColor', '1177': 'hdrToning', '1179': 'replaceColor',
     '1180': 'equalize', '1021': 'colorRange', '1275': 'selectAndMask',
     '1191': 'applyImage', '1192': 'calculations', '1031': 'trim',
-    '1121': 'batch', '1122': 'imageProcessor', '1114': 'quickMask',
-    '1000': 'new', '1001': 'open', '1082': 'save', '1083': 'saveAS',
+    '1121': 'batch', '1122': 'imageprocessor', '1114': 'quickMask',
+    '1000': 'new', '1001': 'open', '1082': 'save', '1083': 'saveas',
+    '1080': 'close', '1081': 'closeall', '1085': 'closeothers',
     '1046': 'flattenImage',
     '1042': 'freetransform',
     '1040': 'fill'
@@ -45,6 +46,125 @@ const KNOWN_MENU_COMMANDS = {
     'gradient map': 'gradientMap', 'selective color': 'selectiveColor',
     'match color': 'matchColor', 'replace color': 'replaceColor',
     'color range': 'colorRange', 'shadows/highlights': 'shadowHighlight'
+};
+
+// ─── File Command Descriptor Mapping ──────────────────────────────────────────
+const FILE_COMMANDS = {
+    'new': async () => {
+        try {
+            const photoshop = require('photoshop');
+            // Try native menu command with both casings
+            await photoshop.core.performMenuCommand({ commandID: 1000, commandId: 1000 });
+        } catch (e) {
+            console.warn("[ActionService] New Document via performMenuCommand failed, trying batchPlay:", e.message);
+            await batchPlay([{ _obj: "make", _target: [{ _ref: "document" }] }], { dialogOptions: "display" });
+        }
+    },
+    'open': async () => {
+        try {
+            const uxp = require('uxp');
+            // Show interactive dialog OUTSIDE executeAsModal
+            const file = await uxp.storage.localFileSystem.getFileForOpening();
+            if (file) {
+                const photoshop = require('photoshop');
+                // Run document open action INSIDE executeAsModal
+                await photoshop.core.executeAsModal(async () => {
+                    await photoshop.app.open(file);
+                }, { commandName: "Open Document" });
+            }
+        } catch (err) {
+            console.warn("[ActionService] UXP Open File failed:", err.message);
+        }
+    },
+    'openas': async () => {
+        try {
+            const photoshop = require('photoshop');
+            // Try triggering native "Open As..." dialog (ID 1002)
+            await photoshop.core.performMenuCommand({ commandID: 1002, commandId: 1002 });
+        } catch (e) {
+            console.warn("[ActionService] Open As via performMenuCommand failed, falling back to UXP file dialog:", e.message);
+            try {
+                const uxp = require('uxp');
+                const file = await uxp.storage.localFileSystem.getFileForOpening();
+                if (file) {
+                    const photoshop = require('photoshop');
+                    await photoshop.core.executeAsModal(async () => {
+                        await photoshop.app.open(file);
+                    }, { commandName: "Open As Document" });
+                }
+            } catch (err) {
+                console.warn("[ActionService] UXP Open As fallback failed:", err.message);
+            }
+        }
+    },
+    'openassmartobject': async () => {
+        await batchPlay([{ _obj: "placedLayerOpenAsSmartObject" }], { dialogOptions: "display" });
+    },
+    'save': async () => {
+        const photoshop = require('photoshop');
+        if (photoshop.app.activeDocument) {
+            await photoshop.core.executeAsModal(async () => {
+                await photoshop.app.activeDocument.save();
+            }, { commandName: "Save Document" });
+        }
+    },
+    'saveas': async () => {
+        await batchPlay([{ _obj: "save", _options: { dialogOptions: "display" } }], { dialogOptions: "display" });
+    },
+    'saveacopy': async () => {
+        await batchPlay([{ _obj: "save", asCopy: true, _options: { dialogOptions: "display" } }], { dialogOptions: "display" });
+    },
+    'close': async () => {
+        const photoshop = require('photoshop');
+        if (photoshop.app.activeDocument) {
+            await photoshop.app.activeDocument.close();
+        }
+    },
+    'closeall': async () => {
+        const photoshop = require('photoshop');
+        const docs = [...photoshop.app.documents];
+        for (const doc of docs) {
+            try {
+                await photoshop.core.executeAsModal(async () => {
+                    await doc.close();
+                }, { commandName: "Close Document" });
+            } catch (e) {
+                console.warn("[ActionService] Failed to close document:", doc.name, e.message);
+            }
+        }
+    },
+    'closeothers': async () => {
+        const photoshop = require('photoshop');
+        const active = photoshop.app.activeDocument;
+        if (!active) return;
+        const docs = [...photoshop.app.documents];
+        for (const doc of docs) {
+            if (doc.id !== active.id) {
+                try {
+                    await photoshop.core.executeAsModal(async () => {
+                        await doc.close();
+                    }, { commandName: "Close Other Document" });
+                } catch (e) {
+                    console.warn("[ActionService] Failed to close other document:", doc.name, e.message);
+                }
+            }
+        }
+    },
+    'placeembedded': async () => {
+        await batchPlay([{ _obj: "placeEvent", linked: false }], { dialogOptions: "display" });
+    },
+    'placelinked': async () => {
+        await batchPlay([{ _obj: "placeEvent", linked: true }], { dialogOptions: "display" });
+    },
+    'package': async () => {
+        await batchPlay([{ _obj: "package" }], { dialogOptions: "display" });
+    },
+    'batch': async () => {
+        await batchPlay([{ _obj: "batch" }], { dialogOptions: "display" });
+    },
+    'imageprocessor': async () => {
+        await batchPlay([{ _obj: "imageProcessor" }], { dialogOptions: "display" });
+    }
 };
 
 // ─── Main Dispatcher ─────────────────────────────────────────────────────────
@@ -160,6 +280,66 @@ async function _selectTool(toolId) {
     }
 }
 
+let cachedMenuMap = null;
+
+const cleanMenuKey = (str) => {
+    return String(str)
+        .toLowerCase()
+        .replace(/\./g, '')
+        .replace(/…/g, '')
+        .replace(/&/g, 'and')
+        .replace(/\//g, '')
+        .replace(/\s+/g, '')
+        .trim();
+};
+
+async function getMenuMap() {
+    if (cachedMenuMap && Object.keys(cachedMenuMap).length > 0) return cachedMenuMap;
+    const menuMap = {};
+    try {
+        const { action } = require('photoshop');
+        const { batchPlay } = action;
+        
+        console.log("[ActionService] Querying application menuBarInfo via batchPlay...");
+        const result = await batchPlay([{
+            _obj: "get",
+            _target: [{ _ref: "application", _enum: "ordinal", _value: "targetEnum" }],
+            _property: "menuBarInfo"
+        }], {});
+        
+        const menuBarInfo = result && result[0] && result[0].menuBarInfo;
+        if (result && result[0]) {
+            console.log("[ActionService] Query result keys:", Object.keys(result[0]));
+            if (result[0].menuBarInfo) {
+                console.log("[ActionService] menuBarInfo structure type:", typeof result[0].menuBarInfo);
+            }
+        }
+        if (menuBarInfo) {
+            const traverse = (items) => {
+                if (!items) return;
+                for (const item of items) {
+                    const cmdId = item.commandId || item.commandID || item.id;
+                    if (cmdId) {
+                        const key = cleanMenuKey(item.name);
+                        menuMap[key] = cmdId;
+                    }
+                    if (item.submenu) {
+                        traverse(item.submenu);
+                    }
+                }
+            };
+            traverse(menuBarInfo);
+            console.log(`[ActionService] Dynamically mapped ${Object.keys(menuMap).length} active menu command IDs from application menuBarInfo.`);
+        } else {
+            console.warn("[ActionService] menuBarInfo property was empty or not found in batchPlay result.");
+        }
+    } catch (e) {
+        console.warn("[ActionService] Failed to dynamically query menuBarInfo via batchPlay:", e);
+    }
+    cachedMenuMap = menuMap;
+    return menuMap;
+}
+
 // ─── Menu Command Execution ──────────────────────────────────────────────────
 
 async function _executeMenuCommand(targetValue) {
@@ -173,6 +353,12 @@ async function _executeMenuCommand(targetValue) {
     const MENU_TO_NUMERIC = {
         'selectall': 1017,
         'new': 1000,
+        'open': 1001,
+        'close': 1080,
+        'closeall': 1081,
+        'closeothers': 1085,
+        'save': 1082,
+        'saveas': 1083,
         'curves': 1010,
         'curves...': 1010,
         'levels': 1051,
@@ -216,8 +402,9 @@ async function _executeMenuCommand(targetValue) {
         'shadows/highlights...': 1180
     };
 
-    const cleanValue = targetValue.toLowerCase().replace(/\./g, '').replace(/…/g, '').trim();
-    const resolvedNumeric = MENU_TO_NUMERIC[cleanValue] || Number(targetValue);
+    const dynamicMenuMap = await getMenuMap();
+    const cleanValue = cleanMenuKey(targetValue);
+    const resolvedNumeric = dynamicMenuMap[cleanValue] || MENU_TO_NUMERIC[cleanValue] || Number(targetValue);
     const isNumeric = !isNaN(resolvedNumeric) && String(resolvedNumeric).length > 0;
 
     // Look up the actual menu item display name from our tools database for robust name-based fallbacks
@@ -227,6 +414,28 @@ async function _executeMenuCommand(targetValue) {
     if (foundCmd) {
         const segments = foundCmd.label.split('>');
         resolvedName = segments[segments.length - 1].trim();
+    }
+
+    // Intercept File commands and execute via direct batchPlay descriptors to bypass UXP performMenuCommand restrictions
+    const fileAction = FILE_COMMANDS[cleanValue];
+    if (fileAction) {
+        try {
+            // Run outside executeAsModal first so interactive dialogs (like New, Open, Close)
+            // are not blocked/suppressed by UXP's modal UI thread lock.
+            await fileAction();
+            return;
+        } catch (e) {
+            console.log(`[ActionService] File command '${cleanValue}' outside modal failed (expected for some save actions), retrying inside modal...`, e.message);
+            try {
+                await core.executeAsModal(async () => {
+                    await fileAction();
+                }, { commandName: `File: ${cleanValue}` });
+                return;
+            } catch (innerE) {
+                if (innerE.message && innerE.message.includes('Time out')) return; // Dialog is open = success
+                console.warn(`[ActionService] File command batchPlay failed for '${cleanValue}':`, innerE.message);
+            }
+        }
     }
 
     // Intercept standard adjustments and execute via direct descriptor to guarantee dialog box display
@@ -274,6 +483,7 @@ async function _executeMenuCommand(targetValue) {
         try {
             const res = await core.performMenuCommand({
                 commandId: resolvedNumeric,
+                commandID: resolvedNumeric,
                 kcanDispatchWhileModal: true,
                 _isCommand: false
             });

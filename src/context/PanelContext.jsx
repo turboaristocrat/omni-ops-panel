@@ -104,6 +104,7 @@ export const PanelProvider = ({ children }) => {
     const [activeSpaceId, setActiveSpaceId] = useState(DEFAULT_CONFIG.panels[0].activeSpaceId);
     const [isEditing, setIsEditing] = useState(false);
     const [selectedItemId, setSelectedItemId] = useState(null);
+    const [selectedItemIds, setSelectedItemIds] = useState([]);
     const [modalState, setModalState] = useState({ isOpen: false, type: null, onConfirm: null, initialData: {} });
 
     // ── Load config on mount ──────────────────────────────────────────────
@@ -122,17 +123,35 @@ export const PanelProvider = ({ children }) => {
 
     // ── Save on change ────────────────────────────────────────────────────
     const updateConfig = useCallback((newConfig) => {
-        const clone = JSON.parse(JSON.stringify(newConfig));
-        setConfig(clone);
-        StorageService.save(clone);
+        if (typeof newConfig === 'function') {
+            setConfig(prev => {
+                const next = newConfig(prev);
+                const clone = JSON.parse(JSON.stringify(next));
+                StorageService.save(clone);
+                return clone;
+            });
+        } else {
+            const clone = JSON.parse(JSON.stringify(newConfig));
+            setConfig(clone);
+            StorageService.save(clone);
+        }
     }, []);
 
     // ── Edit mode cleanup ─────────────────────────────────────────────────
     useEffect(() => {
-        if (!isEditing) setSelectedItemId(null);
+        if (!isEditing) {
+            setSelectedItemId(null);
+            setSelectedItemIds([]);
+        }
         if (isEditing) document.body.classList.add('edit-mode');
         else document.body.classList.remove('edit-mode');
     }, [isEditing]);
+
+    // Clear selection on space change
+    useEffect(() => {
+        setSelectedItemId(null);
+        setSelectedItemIds([]);
+    }, [activeSpaceId]);
 
     // ── Modal helpers ─────────────────────────────────────────────────────
     const showModal = useCallback((type, onConfirm, initialData = {}) => {
@@ -164,6 +183,8 @@ export const PanelProvider = ({ children }) => {
         setIsEditing,
         selectedItemId,
         setSelectedItemId,
+        selectedItemIds,
+        setSelectedItemIds,
         modalState,
         showModal,
         closeModal,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePanel } from '../../context/PanelContext';
 import { commonTools, commonCommands } from '../../data/toolsData';
 import { blendModes } from '../../data/blendModesData';
@@ -69,53 +69,78 @@ async function openAdobeColorPicker(initialColor = null) {
  */
 const ColorPickerRow = ({ label, color, onChange }) => {
     const PALETTE = [
-        '#FFFFFF', '#AAAAAA', '#555555', '#2C2C2C', '#000000',
-        '#0265DC', '#00A0E9', '#00C853', '#FFD600', '#FF9100', '#FF3D00', '#D32F2F', '#E91E63', '#9C27B0'
+        { val: '', label: 'Default', bg: 'linear-gradient(135deg, #2a2a2a 45%, #d13438 45%, #d13438 55%, #2a2a2a 55%)' },
+        { val: '#FFFFFF', label: 'White', bg: '#FFFFFF' },
+        { val: '#AAAAAA', label: 'Gray', bg: '#AAAAAA' },
+        { val: '#444444', label: 'Dark', bg: '#444444' },
+        { val: '#1A1A1A', label: 'Black', bg: '#1A1A1A' },
+        { val: '#0265DC', label: 'Blue', bg: '#0265DC' },
+        { val: '#00C853', label: 'Green', bg: '#00C853' },
+        { val: '#FFD600', label: 'Gold', bg: '#FFD600' },
+        { val: '#FF9100', label: 'Orange', bg: '#FF9100' },
+        { val: '#D32F2F', label: 'Red', bg: '#D32F2F' },
+        { val: '#9C27B0', label: 'Purple', bg: '#9C27B0' },
     ];
 
     const handlePickAdobeColor = async () => {
-        const hex = await openAdobeColorPicker(color);
+        const hex = await openAdobeColorPicker(color || '#FFFFFF');
         if (hex && /^#[0-9A-F]{6}$/i.test(hex)) {
             onChange(hex);
         }
     };
 
-    const safeColor = (typeof color === 'string' && color !== 'transparent' && !color.includes('NaN')) ? color : '#FFFFFF';
+    const safeColor = (typeof color === 'string' && color && color !== 'transparent' && !color.includes('NaN')) 
+        ? color 
+        : '#FFFFFF';
 
     return (
-        <div className="omni-form-group">
+        <div className="omni-form-group" style={{ gap: '4px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label className="omni-label">{label}</label>
+                <label className="omni-label" style={{ fontSize: '9.5px', color: 'var(--color-text-dim)' }}>{label}</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <div
                         role="button"
                         onClick={handlePickAdobeColor}
                         style={{
-                            width: 22, height: 22, borderRadius: 4,
-                            backgroundColor: safeColor,
-                            border: '2px solid #0265DC',
+                            width: 20, height: 20, borderRadius: 3,
+                            backgroundColor: color ? safeColor : '#222222',
+                            border: color ? '1px solid #0078d4' : '1px solid #444444',
                             cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxSizing: 'border-box'
                         }}
-                        title="Click to open Adobe Photoshop Color Picker"
-                    />
+                        title="Click to open Photoshop Color Picker"
+                    >
+                        {!color && <span style={{ fontSize: '10px', color: '#666', lineHeight: 1 }}>⊘</span>}
+                    </div>
                     <input
                         className="omni-input"
                         type="text"
                         value={color || ''}
                         onChange={(e) => onChange(e.target.value.toUpperCase())}
-                        style={{ width: '70px', padding: '0 4px', fontSize: '10px' }}
+                        style={{ width: '60px', height: '22px', padding: '0 4px', fontSize: '10px', textAlign: 'center' }}
                         placeholder="#HEX"
                     />
                 </div>
             </div>
-            <div className="omni-swatches" style={{ marginTop: 6 }}>
-                {PALETTE.map(c => (
+            <div className="omni-swatches" style={{ display: 'flex', gap: '3px', marginTop: '1px' }}>
+                {PALETTE.map((p, idx) => (
                     <div
-                        key={c}
-                        className={`omni-swatch ${color === c ? 'selected' : ''}`}
-                        style={{ background: c }}
-                        onClick={() => onChange(c)}
-                        title={c}
+                        key={idx}
+                        className={`omni-swatch ${(color === p.val || (!color && p.val === '')) ? 'selected' : ''}`}
+                        style={{
+                            background: p.bg,
+                            flex: 1,
+                            height: '16px',
+                            borderRadius: '2px',
+                            border: (color === p.val || (!color && p.val === '')) ? '1px solid #0078d4' : '1px solid #333333',
+                            cursor: 'pointer',
+                            boxSizing: 'border-box'
+                        }}
+                        onClick={() => onChange(p.val)}
+                        title={p.label}
                     />
                 ))}
             </div>
@@ -136,6 +161,7 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
     const [category, setCategory] = useState('tool');
     const [actionType, setActionType] = useState('tool');
     const [actionValue, setActionValue] = useState('');
+    const [selectedActions, setSelectedActions] = useState([]); // For multi-select
     const [searchTerm, setSearchTerm] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -153,8 +179,22 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
     const [fontSize, setFontSize] = useState('11px');
     const [shortcut, setShortcut] = useState('');
 
-    const [activeTab, setActiveTab] = useState('appearance');
+    const [activeTab, setActiveTab] = useState('action');
     const [errors, setErrors] = useState({});
+    const searchAreaRef = useRef(null);
+
+    // Auto-retract suggestion window when clicking outside the search/suggestion area
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (searchAreaRef.current && !searchAreaRef.current.contains(e.target)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('pointerdown', handleClickOutside);
+        return () => {
+            document.removeEventListener('pointerdown', handleClickOutside);
+        };
+    }, []);
 
     // Populate from initialData on open
     useEffect(() => {
@@ -171,7 +211,10 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
             const initType = initialData.actionType || 'tool';
             setActionType(initType);
             setActionValue(initialData.actionValue || '');
-            setSearchTerm(initialData.actionValue || '');
+            if (initialData.actionValue) {
+                setSelectedActions([{ type: initType, value: initialData.actionValue, label: initialData.label || initialData.actionValue }]);
+            }
+            setSearchTerm('');
             // Map actionType to category
             if (initType === 'tool' || initType === 'customFunc') setCategory('tool');
             else if (initType === 'menu') setCategory('menu');
@@ -233,11 +276,21 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
     }, [category, searchTerm, psActions]);
 
     const handleSelectSuggestion = (item) => {
-        setSearchTerm(item.label);
-        setActionType(item.type);
-        setActionValue(item.value);
-        if (!label) setLabel(item.label.replace('...', '').replace('…', ''));
-        setShowSuggestions(false);
+        const isSelected = selectedActions.some(a => a.value === item.value);
+        let updated;
+        if (isSelected) {
+            updated = selectedActions.filter(a => a.value !== item.value);
+        } else {
+            updated = [...selectedActions, { type: item.type, value: item.value, label: item.label.replace('...', '').replace('…', '') }];
+        }
+        setSelectedActions(updated);
+        if (updated.length === 1) {
+            setActionType(updated[0].type);
+            setActionValue(updated[0].value);
+            if (!label || label === initialData?.label) {
+                setLabel(updated[0].label);
+            }
+        }
     };
 
     const handleKeyDown = (e) => {
@@ -248,29 +301,62 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
         else if (e.key === 'Escape') setShowSuggestions(false);
     };
 
-    const validate = () => {
-        const errs = {};
-        if (!label.trim()) errs.label = 'Button label is required';
-        if (!actionValue.trim()) errs.actionValue = 'Please select or enter an action';
-        setErrors(errs);
-        return Object.keys(errs).length === 0;
-    };
-
     const handleSave = () => {
-        if (!validate()) { setActiveTab('action'); return; }
-        onConfirm({
-            type: 'button',
-            label: label.trim(),
-            actionType,
-            actionValue,
-            showLabel,
-            buttonColor,
-            textColor,
-            icon,
-            buttonSize,
-            fontSize,
-            shortcut,
-        });
+        const newErrors = {};
+        const chosenAction = selectedActions.length === 1 ? selectedActions[0] : (actionValue ? { type: actionType, value: actionValue, label: label || actionValue } : null);
+        
+        if (selectedActions.length === 0 && !chosenAction) {
+            newErrors.actionValue = 'Please select an action';
+            setErrors(newErrors);
+            setActiveTab('action');
+            return;
+        }
+
+        // Auto-assign label if not explicitly typed
+        let finalLabel = label.trim();
+        if (!finalLabel) {
+            if (chosenAction && chosenAction.label) {
+                finalLabel = chosenAction.label.replace('...', '').replace('…', '');
+            } else if (selectedActions.length > 1) {
+                finalLabel = 'Multi';
+            } else {
+                finalLabel = 'Button';
+            }
+        }
+
+        if (selectedActions.length > 1) {
+            // Bulk insert multiple items
+            const itemsToAdd = selectedActions.map((act) => ({
+                type: 'button',
+                label: act.label.replace('...', '').replace('…', ''),
+                actionType: act.type,
+                actionValue: act.value,
+                buttonColor,
+                textColor,
+                icon,
+                buttonSize,
+                fontSize,
+                showLabel,
+                shortcut: ''
+            }));
+            onConfirm(itemsToAdd);
+        } else {
+            const singleAction = chosenAction || { type: actionType || 'tool', value: actionValue || 'tool_move' };
+            onConfirm({
+                ...(initialData || {}),
+                type: 'button',
+                label: finalLabel,
+                actionType: singleAction.type,
+                actionValue: singleAction.value,
+                buttonColor,
+                textColor,
+                icon,
+                buttonSize,
+                fontSize,
+                showLabel,
+                shortcut
+            });
+        }
     };
 
     const COLOR_SWATCHES = [
@@ -288,7 +374,7 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
 
     return (
         <div className="omni-modal-overlay">
-            <div className="omni-modal">
+            <div className="omni-modal omni-modal--edit">
                 <div className="omni-modal-header">
                     <h3 className="omni-modal-title">{isEdit ? 'Edit Button' : 'Add Button'}</h3>
                     <button className="omni-modal-close" onClick={onCancel}>×</button>
@@ -296,13 +382,13 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
 
                 {/* Tabs */}
                 <div className="omni-modal-tabs">
-                    {['appearance', 'action'].map(tab => (
+                    {['action', 'appearance'].map(tab => (
                         <button
                             key={tab}
                             className={`omni-modal-tab ${activeTab === tab ? 'active' : ''}`}
                             onClick={() => setActiveTab(tab)}
                         >
-                            {tab === 'appearance' ? '🎨 Appearance' : '⚡ Action'}
+                            {tab === 'appearance' ? 'Appearance' : 'Action'}
                         </button>
                     ))}
                 </div>
@@ -310,23 +396,94 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
                 <div className="omni-modal-body">
                     {/* ── ACTION TAB ─────────────────────────────────────── */}
                     {activeTab === 'action' && (
-                        <div className="omni-form-group-stack">
-                            {/* Category selector */}
-                            <div className="omni-form-group">
-                                <label className="omni-label">Action Category</label>
-                                <div className="omni-category-grid">
+                        <div className="omni-form-group-stack" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {/* Search & Suggestions Container with outside click detection */}
+                            <div 
+                                ref={searchAreaRef} 
+                                onPointerDown={(e) => e.stopPropagation()}
+                                style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}
+                            >
+                                {/* 1. Search Field */}
+                                <div className="omni-form-group" style={{ position: 'relative', margin: 0 }}>
+                                    <input
+                                        className={`omni-input ${errors.actionValue ? 'error' : ''}`}
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={e => { setSearchTerm(e.target.value); setShowSuggestions(true); setHighlightedIndex(0); }}
+                                        onClick={() => setShowSuggestions(true)}
+                                        onFocus={() => setShowSuggestions(true)}
+                                        onKeyDown={handleKeyDown}
+                                        placeholder={category === 'psAction' && !psActionsLoaded ? "Loading PS Actions..." : `Search ${category === 'psAction' ? 'Actions' : category + 's'}...`}
+                                        style={{ height: '46px', fontSize: '14px', borderRadius: '6px', padding: '0 12px', background: '#121212', border: '1px solid var(--color-border-hi)', boxSizing: 'border-box' }}
+                                    />
+                                    {errors.actionValue && <span className="omni-error" style={{ marginTop: '2px' }}>{errors.actionValue}</span>}
+                                </div>
+
+                                {/* 2. Suggestions List */}
+                                {showSuggestions && (
+                                    <div style={{ height: '165px', minHeight: '165px', maxHeight: '165px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: '6px', background: '#181818', padding: '2px 0', boxSizing: 'border-box' }}>
+                                        {/* Suggestions Header bar */}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px', borderBottom: '1px solid #282828', background: '#202020' }}>
+                                            <span style={{ fontSize: '9px', fontWeight: '600', color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                {!isEdit && selectedActions.length > 0 ? `${selectedActions.length} Selected` : 'Select Action'}
+                                            </span>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); setShowSuggestions(false); }}
+                                                style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', fontSize: '11px', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
+                                            >
+                                                ✕ Close
+                                            </button>
+                                        </div>
+                                        {suggestions.length > 0 ? (
+                                            <ul className="omni-suggestions" style={{ display: 'block', position: 'static', width: '100%', margin: 0, padding: 0, listStyle: 'none', background: 'transparent' }}>
+                                                {suggestions.map((s, i) => {
+                                                    const isSelected = selectedActions.some(a => a.value === s.value);
+                                                    return (
+                                                        <li
+                                                            key={i}
+                                                            className={`omni-suggestion-item ${i === highlightedIndex ? 'highlighted' : ''}`}
+                                                            onClick={() => handleSelectSuggestion(s)}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 10px', cursor: 'pointer', borderBottom: '1px solid #242424', background: isSelected ? 'rgba(0, 120, 212, 0.18)' : 'transparent' }}
+                                                        >
+                                                            {/* Custom checkbox */}
+                                                            <div
+                                                                className={`omni-checkbox ${isSelected ? 'checked' : ''}`}
+                                                                style={{ flexShrink: 0, width: '16px', height: '16px', border: isSelected ? '1px solid #0078d4' : '1px solid #666', background: isSelected ? '#0078d4' : '#282828', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                            >
+                                                                {isSelected && <span style={{ fontSize: '11px', color: '#ffffff', fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
+                                                            </div>
+                                                            <span className="omni-suggestion-label" style={{ flexGrow: 1, fontSize: '12px', color: isSelected ? '#ffffff' : 'var(--color-text)' }}>{s.label}</span>
+                                                            <span className="omni-suggestion-type" style={{ fontSize: '9px', opacity: 0.55, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.displayType}</span>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        ) : (
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', color: 'var(--color-text-dim)', fontSize: '11px' }}>
+                                                No matching actions found
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 3. Category selector */}
+                            <div className="omni-form-group" style={{ marginTop: '2px', flexShrink: 0 }} onPointerDown={(e) => e.stopPropagation()}>
+                                <label className="omni-label" style={{ fontSize: '9px', marginBottom: '4px', color: 'var(--color-text-muted)' }}>Filter Category</label>
+                                <div className="omni-category-grid" style={{ gap: '4px', display: 'flex', flexWrap: 'wrap' }}>
                                     {[
                                         { id: 'tool',       label: '🔧 Tools' },
                                         { id: 'menu',       label: '📋 Menu' },
-                                        { id: 'psAction',   label: '▶ PS Action' },
-                                        { id: 'blend',      label: '🎭 Blend Mode' },
-                                        { id: 'adjustment', label: '🎚 Adjustment' },
+                                        { id: 'psAction',   label: '▶ Actions' },
+                                        { id: 'blend',      label: '🎭 Blends' },
+                                        { id: 'adjustment', label: '🎚 Adjusts' },
                                         { id: 'layer',      label: '📄 Layer Ops' },
                                     ].map(cat => (
                                         <button
                                             key={cat.id}
                                             className={`omni-category-btn ${category === cat.id ? 'active' : ''}`}
                                             onClick={() => { setCategory(cat.id); setSearchTerm(''); setActionValue(''); setShowSuggestions(true); }}
+                                            style={{ fontSize: '9.5px', padding: '4px 2px', flex: '1 1 calc(33.33% - 4px)', height: '26px', lineHeight: '16px' }}
                                         >
                                             {cat.label}
                                         </button>
@@ -334,64 +491,47 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
                                 </div>
                             </div>
 
-                            {/* Search / select */}
-                            <div className="omni-form-group" style={{ position: 'relative' }}>
-                                <label className="omni-label">
-                                    {category === 'psAction' && !psActionsLoaded ? 'Loading PS Actions...' : 'Search & Select'}
-                                </label>
-                                <input
-                                    className={`omni-input ${errors.actionValue ? 'error' : ''}`}
-                                    type="text"
-                                    value={searchTerm}
-                                    onChange={e => { setSearchTerm(e.target.value); setActionValue(e.target.value); setShowSuggestions(true); setHighlightedIndex(0); }}
-                                    onFocus={() => setShowSuggestions(true)}
-                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder={`Search ${category}...`}
-                                    autoFocus
-                                />
-                                {errors.actionValue && <span className="omni-error">{errors.actionValue}</span>}
-
-                                {showSuggestions && suggestions.length > 0 && (
-                                    <ul className="omni-suggestions">
-                                        {suggestions.map((s, i) => (
-                                            <li
-                                                key={i}
-                                                className={`omni-suggestion-item ${i === highlightedIndex ? 'highlighted' : ''}`}
-                                                onMouseDown={() => handleSelectSuggestion(s)}
-                                            >
-                                                <span className="omni-suggestion-label">{s.label}</span>
-                                                <span className="omni-suggestion-type">{s.displayType}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-
-                                {actionValue && (
-                                    <div className="omni-binding-preview">
-                                        <span className="omni-binding-key">BOUND TO</span>
-                                        <span className="omni-binding-value">{actionValue}</span>
-                                        <span className="omni-binding-badge">{actionType}</span>
-                                    </div>
-                                )}
-                            </div>
+                            {/* 4. Selection / Bound preview badge */}
+                            {selectedActions.length > 0 && (
+                                <div className="omni-binding-preview" style={{ marginTop: '2px', flexShrink: 0 }}>
+                                    <span className="omni-binding-key">{selectedActions.length === 1 ? 'BOUND TO' : 'SELECTED'}</span>
+                                    <span className="omni-binding-value">
+                                        {selectedActions.length === 1 ? selectedActions[0].value : `${selectedActions.length} items selected`}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* ── APPEARANCE TAB ─────────────────────────────────── */}
                     {activeTab === 'appearance' && (
-                        <div className="omni-form-group-stack">
-                            {/* Label */}
-                            <div className="omni-form-group">
-                                <label className="omni-label">Button Label</label>
-                                <input
-                                    className={`omni-input ${errors.label ? 'error' : ''}`}
-                                    type="text"
-                                    value={label}
-                                    onChange={e => setLabel(e.target.value)}
-                                    placeholder="e.g. Merge Down"
-                                />
-                                {errors.label && <span className="omni-error">{errors.label}</span>}
+                        <div className="omni-form-group-stack" style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                            {/* Label & Font Size Row */}
+                            <div className="omni-form-row" style={{ display: 'flex', gap: '8px' }}>
+                                <div className="omni-form-group" style={{ flex: 1 }}>
+                                    <label className="omni-label" style={{ fontSize: '9.5px' }}>Button Label {selectedActions.length > 1 && <span className="omni-label-hint">(Auto-gen)</span>}</label>
+                                    <input
+                                        className={`omni-input ${errors.label ? 'error' : ''}`}
+                                        type="text"
+                                        value={selectedActions.length > 1 ? 'Auto-generated' : label}
+                                        onChange={e => setLabel(e.target.value)}
+                                        placeholder="e.g. Merge Down"
+                                        disabled={selectedActions.length > 1}
+                                        style={{ opacity: selectedActions.length > 1 ? 0.5 : 1 }}
+                                    />
+                                    {errors.label && <span className="omni-error">{errors.label}</span>}
+                                </div>
+                                <div className="omni-form-group" style={{ width: '65px', flexShrink: 0 }}>
+                                    <label className="omni-label" style={{ fontSize: '9.5px' }}>Font Size</label>
+                                    <input
+                                        className="omni-input"
+                                        type="text"
+                                        value={fontSize}
+                                        onChange={e => setFontSize(e.target.value)}
+                                        placeholder="11px"
+                                        style={{ textAlign: 'center' }}
+                                    />
+                                </div>
                             </div>
 
                             {/* Color Pickers */}
@@ -406,50 +546,48 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
                                 onChange={setButtonColor}
                             />
 
-                            {/* Font Size */}
-                            <div className="omni-form-group">
-                                <label className="omni-label">Font Size <span className="omni-label-hint">(optional)</span></label>
-                                <input
-                                    className="omni-input"
-                                    type="text"
-                                    value={fontSize}
-                                    onChange={e => setFontSize(e.target.value)}
-                                    placeholder="e.g. 10px, 12px, 14px"
-                                />
-                            </div>
-
-                            {/* Icon + Size row */}
-                            <div className="omni-form-row">
-                                <div className="omni-form-group">
-                                    <label className="omni-label">Icon (emoji or path)</label>
-                                    <input className="omni-input" type="text" value={icon} onChange={e => setIcon(e.target.value)} placeholder="e.g. 🎨 or /icons/..." />
+                            {/* Icon & Shortcut Row */}
+                            <div className="omni-form-row" style={{ display: 'flex', gap: '8px' }}>
+                                <div className="omni-form-group" style={{ flex: 1, minWidth: 0 }}>
+                                    <label className="omni-label" style={{ fontSize: '9.5px' }}>Icon (emoji / path)</label>
+                                    <input
+                                        className="omni-input"
+                                        type="text"
+                                        value={icon}
+                                        onChange={e => setIcon(e.target.value)}
+                                        placeholder="e.g. 🎨"
+                                    />
                                 </div>
-                                <div className="omni-form-group">
-                                    <label className="omni-label">Size</label>
-                                    <select className="omni-select" value={buttonSize} onChange={e => setButtonSize(e.target.value)}>
-                                        <option value="xs">XS</option>
-                                        <option value="sm">Small</option>
-                                        <option value="standard">Standard</option>
-                                        <option value="lg">Large</option>
-                                        <option value="xl">XL</option>
-                                    </select>
+                                <div className="omni-form-group" style={{ flex: 1, minWidth: 0 }}>
+                                    <label className="omni-label" style={{ fontSize: '9.5px' }}>Shortcut Label <span className="omni-label-hint">(display)</span></label>
+                                    <input
+                                        className="omni-input"
+                                        type="text"
+                                        value={shortcut}
+                                        onChange={e => setShortcut(e.target.value)}
+                                        placeholder="e.g. F5"
+                                    />
                                 </div>
                             </div>
 
-                            {/* Shortcut */}
-                            <div className="omni-form-group">
-                                <label className="omni-label">Keyboard Shortcut Label <span className="omni-label-hint">(display only)</span></label>
-                                <input className="omni-input" type="text" value={shortcut} onChange={e => setShortcut(e.target.value)} placeholder="e.g. F5, Ctrl+1" />
-                                <p className="omni-hint">Displayed as a badge on the button. Assign actual shortcut in PS via Edit → Keyboard Shortcuts.</p>
-                            </div>
-
-                            {/* Show Label toggle */}
-                            <div className="omni-form-group">
-                                <div className="omni-checkbox-row" onClick={() => setShowLabel(!showLabel)}>
-                                    <div className={`omni-checkbox ${showLabel ? 'checked' : ''}`}>
-                                        {showLabel && <span>✓</span>}
+                            {/* Show Label Checkbox Row */}
+                            <div className="omni-form-row" style={{ marginTop: '2px' }}>
+                                <div
+                                    className="omni-checkbox-row"
+                                    onClick={() => setShowLabel(!showLabel)}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        cursor: 'pointer',
+                                        userSelect: 'none',
+                                        padding: '4px 0'
+                                    }}
+                                >
+                                    <div className={`omni-checkbox ${showLabel ? 'checked' : ''}`} style={{ width: '16px', height: '16px', flexShrink: 0 }}>
+                                        {showLabel && <span style={{ fontSize: '11px', lineHeight: 1 }}>✓</span>}
                                     </div>
-                                    <span className="omni-checkbox-label">Show Label on Button</span>
+                                    <span className="omni-checkbox-label" style={{ fontSize: '11.5px', color: '#e0e0e0', userSelect: 'none' }}>Show Label</span>
                                 </div>
                             </div>
                         </div>
@@ -459,7 +597,7 @@ const ButtonEditModal = ({ initialData, onConfirm, onCancel }) => {
                 <div className="omni-modal-footer">
                     <button className="omni-btn omni-btn-cancel" onClick={onCancel}>Cancel</button>
                     <button className="omni-btn omni-btn-save" onClick={handleSave}>
-                        {isEdit ? 'Update' : 'Add Button'}
+                        {isEdit ? 'Update Button' : (selectedActions.length > 1 ? `Add (${selectedActions.length}) Buttons` : 'Add Button')}
                     </button>
                 </div>
             </div>

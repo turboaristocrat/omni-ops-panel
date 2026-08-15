@@ -4,6 +4,7 @@ import TabBar from './TabBar';
 import Space from './Space';
 import ModalManager from './modals/ModalManager';
 
+
 /**
  * Panel
  * Main container. Handles: tabs, space rendering, edit mode, delete,
@@ -12,7 +13,7 @@ import ModalManager from './modals/ModalManager';
 const Panel = () => {
     const {
         config, activeSpaceId, isEditing, setIsEditing,
-        selectedItemId, setSelectedItemId, modalState, closeModal, updateConfig, showModal
+        selectedItemId, setSelectedItemId, selectedItemIds, setSelectedItemIds, modalState, closeModal, updateConfig, showModal
     } = usePanel();
 
     const panelRef = useRef(null);
@@ -38,16 +39,17 @@ const Panel = () => {
     const activeSpace = spaces[spaceIndex >= 0 ? spaceIndex : 0];
     const activeSpaceIdx = spaceIndex >= 0 ? spaceIndex : 0;
 
-    // Delete selected item
+    // Delete selected items
     const handleDeleteSelected = () => {
-        if (!selectedItemId) return;
+        if (!selectedItemIds || selectedItemIds.length === 0) return;
         showModal('confirm', () => {
             const newConfig = JSON.parse(JSON.stringify(config));
             const layout = newConfig.panels[0].spaces[activeSpaceIdx].layout;
-            layout.items = layout.items.filter(it => it.id !== selectedItemId);
+            layout.items = layout.items.filter(it => !selectedItemIds.includes(it.id));
             updateConfig(newConfig);
             setSelectedItemId(null);
-        }, { message: 'Delete selected item?' });
+            setSelectedItemIds([]);
+        }, { message: `Delete ${selectedItemIds.length} selected item(s)?` });
     };
 
     const editBtnClass = isEditing ? 'omni-header-btn active' : 'omni-header-btn';
@@ -75,9 +77,9 @@ const Panel = () => {
                     <div className="omni-empty-state">
                         <div className="omni-empty-icon">◧</div>
                         <p>No tabs yet.</p>
-                        <button className="omni-btn omni-btn-save" onClick={() => setIsEditing(true)}>
+                        <sp-button variant="cta" onClick={() => setIsEditing(true)}>
                             Enter Edit Mode to Start
-                        </button>
+                        </sp-button>
                     </div>
                 )}
             </div>

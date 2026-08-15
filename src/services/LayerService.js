@@ -31,22 +31,86 @@ export async function setBlendMode(mode) {
  * @param {string} type - e.g. 'levels', 'curves', 'hueSaturation', etc.
  */
 export async function createAdjustmentLayer(type) {
+    let typeObj = { _obj: type };
+    let presetKind = undefined;
+    
+    switch (type) {
+        case 'hueSaturation':
+            typeObj = {
+                _obj: 'hueSaturation',
+                adjustment: [{
+                    _obj: 'hueSatAdjustmentV2',
+                    hue: 0, saturation: 0, lightness: 0, colorize: false
+                }]
+            };
+            break;
+        case 'curves':
+            typeObj = { 
+                _obj: 'curves',
+                transferFunction: 0,
+                presetKind: { _enum: 'presetKindType', _value: 'presetKindDefault' }
+            };
+            break;
+        case 'levels':
+            typeObj = {
+                _obj: 'levels',
+                presetKind: { _enum: 'presetKindType', _value: 'presetKindDefault' }
+            };
+            break;
+        case 'brightnessContrast':
+            typeObj = { _obj: 'brightnessEvent', brightness: 0, contrast: 0, useLegacy: false };
+            break;
+        case 'exposure':
+            typeObj = { _obj: 'exposure', exposure: 0, offset: 0, gammaCorrection: 1.0 };
+            break;
+        case 'vibrance':
+            typeObj = { _obj: 'vibrance', vibrance: 0, saturation: 0 };
+            break;
+        case 'colorBalance':
+            typeObj = { _obj: 'colorBalance', shadowLevels: [0, 0, 0], midtoneLevels: [0, 0, 0], highlightLevels: [0, 0, 0], preserveLuminosity: true };
+            break;
+        case 'blackAndWhite':
+            typeObj = { _obj: 'blackAndWhite' };
+            presetKind = { _enum: 'presetKindType', _value: 'presetKindDefault' };
+            break;
+        case 'photoFilter':
+            typeObj = { _obj: 'photoFilter', color: { _obj: 'RGBColor', red: 236, green: 138, blue: 0 }, density: 25, preserveLuminosity: true };
+            break;
+        case 'channelMixer':
+            typeObj = { _obj: 'channelMixer' };
+            presetKind = { _enum: 'presetKindType', _value: 'presetKindDefault' };
+            break;
+        case 'colorLookup':
+            typeObj = { _obj: 'colorLookup' };
+            break;
+        case 'posterize':
+            typeObj = { _obj: 'posterize', levels: 4 };
+            break;
+        case 'threshold':
+            typeObj = { _obj: 'thresholdClassEvent', level: 128 };
+            break;
+        case 'gradientMap':
+            typeObj = { _obj: 'gradientMapClass' };
+            break;
+        case 'selectiveColor':
+            typeObj = { _obj: 'selectiveColor' };
+            presetKind = { _enum: 'presetKindType', _value: 'presetKindDefault' };
+            break;
+    }
+
     const descriptor = {
         _obj: 'make',
         _target: [{ _ref: 'adjustmentLayer' }],
         using: {
             _obj: 'adjustmentLayer',
-            type: { _obj: type }
+            type: typeObj
         }
     };
-    // Add default params for hueSaturation to avoid PS errors
-    if (type === 'hueSaturation') {
-        descriptor.using.type.adjustment = [{
-            _obj: 'hueSatAdjustmentV2',
-            hue: 0, saturation: 0, lightness: 0, colorize: false
-        }];
+    if (presetKind) {
+        descriptor.using.presetKind = presetKind;
     }
-    await batchPlay([descriptor], {});
+
+    await batchPlay([descriptor], { dialogOptions: "dontDisplay" });
 }
 
 // ─── Layer Mask Operations ───────────────────────────────────────────────────

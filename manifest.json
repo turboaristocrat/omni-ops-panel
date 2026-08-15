@@ -7,7 +7,8 @@
         "app": "PS",
         "minVersion": "25.2.0",
         "data": {
-            "apiVersion": 2
+            "apiVersion": 2,
+            "enableMenuRecording": true
         }
     },
     "manifestVersion": 5,
